@@ -7,17 +7,12 @@ import { createDrawerNavigator, DrawerItems } from 'react-navigation-drawer';
 import { Container, Header, Content, Body, Text, Thumbnail, List, ListItem, Left, Right, Icon } from 'native-base';
 
 import Home from '../screens/Home';
+import AddBoard from '../screens/AddBoard';
+import Search from '../screens/Search';
 import Settings from '../screens/Settings';
 import About from '../screens/About';
 import Help from '../screens/Help';
 
-const data = [
-    { id: 1, board: 'Electronics', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 2, board: 'Stationary', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 3, board: 'Acessories', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 4, board: 'Electronics', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 5, board: 'Stationary', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' }
-];
 
 const CustomDrawerContentComponent = (props) => (
     
@@ -36,11 +31,11 @@ const CustomDrawerContentComponent = (props) => (
                     <Text style={styles.list}>Settings</Text>
                 </ListItem>
                 <ListItem>
-                    <Icon name='information-circle-outline' style={styles.iconList} />
-                    <Text style={styles.list}>About</Text>
+                    <Icon name='help-circle-outline' style={styles.iconList}/>
+                    <Text style={styles.list}>Tutorial</Text>
                 </ListItem>
                 <ListItem>
-                    <Icon name='help-circle-outline' style={styles.iconList}/>
+                    <Icon name='information-circle-outline' style={styles.iconList} />
                     <Text style={styles.list}>Help & Feedback</Text>
                 </ListItem>
             </List>
@@ -52,6 +47,8 @@ const CustomDrawerContentComponent = (props) => (
 
 const StackNavigator = createStackNavigator({
     Home,
+    AddBoard,
+    Search
 },
 {
     initialRouteName: 'Home',

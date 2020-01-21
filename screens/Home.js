@@ -1,7 +1,6 @@
 import React, { Component } from 'react'
 import { Text, StyleSheet, View, Dimensions, FlatList } from 'react-native'
-
-import { Container, Content, Header, Item, Icon, Input, Left, Right, Body, Title, Subtitle, Button, Card, CardItem, Fab } from 'native-base'
+import { Container, Header, Icon, Left, Right, Body, Button } from 'native-base'
 
 
 const data = [
@@ -61,7 +60,7 @@ export default class Home extends Component {
                             <Icon name='search' style={styles.icon} />
                         </Button>
                         <Button transparent onPress={() => { }}>
-                            <Icon name='add' style={styles.icon} />
+                            <Icon name='add' style={styles.icon} onPress={() => this.props.navigation.navigate('AddBoard')} />
                         </Button>
                     </Right>
                 </Header>
