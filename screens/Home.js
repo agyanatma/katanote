@@ -26,19 +26,25 @@ const formatData = (data, numColumns) => {
 const numColumns = 2;
 
 export default class Home extends Component {
+    // constructor(){
+    //     super(props);
+    //     this.state = {
+    //         loading: false,
+    //         data: [],
+    //         error: null
+    //     };
+    // }
 
-    static navigationOptions= {
-        drawerIcon: <Icon name='home' />
-    }
+    // componentDidMount(){
+
+    // }
 
     renderItem = ({ item, index }) => {
         if (item.empty === true) {
             return <View style={[styles.item, styles.itemInvisible]} />;
         }
         return (
-            <View
-                style={styles.item}
-            >
+            <View style={styles.item} >
                 <Text style={styles.board}>{item.board}</Text>
                 <Text style={styles.description}>{item.desc}</Text>
             </View>
@@ -57,7 +63,7 @@ export default class Home extends Component {
                     <Body/>
                     <Right>
                         <Button transparent onPress={() => { }}>
-                            <Icon name='search' style={styles.icon} />
+                            <Icon name='search' style={styles.icon} onPress={() => this.props.navigation.navigate('Search')} />
                         </Button>
                         <Button transparent onPress={() => { }}>
                             <Icon name='add' style={styles.icon} onPress={() => this.props.navigation.navigate('AddBoard')} />

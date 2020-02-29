@@ -24,7 +24,7 @@ export default class AddBoard extends Component {
                         </Item>
                         <Textarea regular style={styles.form} placeholderTextColor='grey' bordered rowSpan={5} placeholder='Description' />
                         <Button block style={styles.button} >
-                            <Text>Create</Text>
+                            <Text style={styles.textButton} >Create</Text>
                         </Button>
                     </Form>
                 </Content>
@@ -54,6 +54,13 @@ const styles = StyleSheet.create({
     button: {
         width: 100,
         alignSelf: 'flex-end',
-        marginTop: 20
+        marginTop: 20,
+        elevation: 2,
+        backgroundColor: '#fbf437',
+        borderRadius: 10
+    },
+    textButton: {
+        color: '#1e1e1e',
+        fontWeight: 'bold'
     }
 })
