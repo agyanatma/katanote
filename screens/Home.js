@@ -1,23 +1,23 @@
 import React, { Component } from 'react'
 import { Text, StyleSheet, View, Dimensions, FlatList } from 'react-native'
-import { Container, Header, Icon, Left, Right, Body, Button } from 'native-base'
+import { Container, Header, Icon, Left, Right, Body, Button, Spinner } from 'native-base'
 
 const Realm = require('realm');
 import {databaseOptions, BOARD_SCHEMA, BoardSchema} from '../database/allSchemas';
 
-const formatData = (data, numColumns) => {
-    const numberOfFullRows = Math.floor(data.length / numColumns);
+// const formatData = (data, numColumns) => {
+//     const numberOfFullRows = Math.floor(data.length / numColumns);
 
-    let numberOfElementsLastRow = data.length - (numberOfFullRows * numColumns);
-    while (numberOfElementsLastRow !== numColumns && numberOfElementsLastRow !== 0) {
-        data.push({ key: `blank-${numberOfElementsLastRow}`, empty: true });
-        numberOfElementsLastRow++;
-    }
+//     let numberOfElementsLastRow = data.length - (numberOfFullRows * numColumns);
+//     while (numberOfElementsLastRow !== numColumns && numberOfElementsLastRow !== 0) {
+//         data.push({ key: `blank-${numberOfElementsLastRow}`, empty: true });
+//         numberOfElementsLastRow++;
+//     }
 
-    return data;
-};
+//     return data;
+// };
 
-const numColumns = 2;
+// const numColumns = 2;
 
 export default class Home extends Component {
 
@@ -74,14 +74,17 @@ export default class Home extends Component {
                 </Header>
                 <Text style={styles.title}>KataNote</Text>
                 <Text style={styles.subtitle}>your private catalogs and notes</Text>
-                <FlatList 
-                    data={formatData([this.state.data], numColumns)}
-                    style={styles.list}
-                    renderItem={this.renderItem}
-                    numColumns={numColumns}
-                    keyExtractor={item => item.id}
-                    showsVerticalScrollIndicator={false}
-                />
+                {
+                    this.state.loading ? <Spinner/> :
+                    <FlatList 
+                        data={this.state.data}
+                        style={styles.list}
+                        renderItem={this.renderItem}
+                        // numColumns={numColumns}
+                        keyExtractor={item => item.id}
+                        showsVerticalScrollIndicator={false}
+                    />
+                }
             </Container>
         )
     }
@@ -125,7 +128,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 10,
         elevation: 5,
-        height: Dimensions.get('window').width / numColumns
+        height: 80
     },
     itemInvisible: {
         backgroundColor: 'transparent',
