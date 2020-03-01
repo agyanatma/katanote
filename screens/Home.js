@@ -2,14 +2,8 @@ import React, { Component } from 'react'
 import { Text, StyleSheet, View, Dimensions, FlatList } from 'react-native'
 import { Container, Header, Icon, Left, Right, Body, Button } from 'native-base'
 
-
-const data = [
-    { id: 1, board: 'Electronics', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 2, board: 'Stationary', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 3, board: 'Acessories', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 4, board: 'Electronics', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' },
-    { id: 5, board: 'Stationary', desc: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.' }
-];
+const Realm = require('realm');
+import {databaseOptions, BOARD_SCHEMA, BoardSchema} from '../database/allSchemas';
 
 const formatData = (data, numColumns) => {
     const numberOfFullRows = Math.floor(data.length / numColumns);
@@ -26,18 +20,26 @@ const formatData = (data, numColumns) => {
 const numColumns = 2;
 
 export default class Home extends Component {
-    // constructor(){
-    //     super(props);
-    //     this.state = {
-    //         loading: false,
-    //         data: [],
-    //         error: null
-    //     };
-    // }
 
-    // componentDidMount(){
+    constructor(props){
+        super(props);
+        this.state = {
+            data: [],
+            loading: false,
+        }
+    };
 
-    // }
+    componentDidMount() {
+        Realm.open(databaseOptions)
+        .then(realm => {
+            let board = realm.objects(BOARD_SCHEMA);
+            this.setState({data: board});
+            console.log(this.state.data);
+        })
+        .catch(error => {
+            console.log(error);
+        });
+    };
 
     renderItem = ({ item, index }) => {
         if (item.empty === true) {
@@ -45,8 +47,8 @@ export default class Home extends Component {
         }
         return (
             <View style={styles.item} >
-                <Text style={styles.board}>{item.board}</Text>
-                <Text style={styles.description}>{item.desc}</Text>
+                <Text style={styles.board}>{item.name}</Text>
+                <Text style={styles.description}>{item.description ? item.description : ""}</Text>
             </View>
         );
     };
@@ -62,18 +64,18 @@ export default class Home extends Component {
                     </Left>
                     <Body/>
                     <Right>
-                        <Button transparent onPress={() => { }}>
-                            <Icon name='search' style={styles.icon} onPress={() => this.props.navigation.navigate('Search')} />
+                        <Button transparent onPress={() => this.props.navigation.navigate('Search')}>
+                            <Icon name='search' style={styles.icon}/>
                         </Button>
-                        <Button transparent onPress={() => { }}>
-                            <Icon name='add' style={styles.icon} onPress={() => this.props.navigation.navigate('AddBoard')} />
+                        <Button transparent onPress={() => this.props.navigation.navigate('AddBoard')}>
+                            <Icon name='add' style={styles.icon}/>
                         </Button>
                     </Right>
                 </Header>
                 <Text style={styles.title}>KataNote</Text>
                 <Text style={styles.subtitle}>your private catalogs and notes</Text>
                 <FlatList 
-                    data={formatData(data, numColumns)}
+                    data={formatData([this.state.data], numColumns)}
                     style={styles.list}
                     renderItem={this.renderItem}
                     numColumns={numColumns}

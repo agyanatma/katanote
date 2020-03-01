@@ -34,7 +34,6 @@ target 'katanote' do
   pod 'glog', :podspec => '../node_modules/react-native/third-party-podspecs/glog.podspec'
   pod 'Folly', :podspec => '../node_modules/react-native/third-party-podspecs/Folly.podspec'
 
-  pod 'RealmJS', :path => '../node_modules/realm'
 
   target 'katanoteTests' do
     inherit! :search_paths

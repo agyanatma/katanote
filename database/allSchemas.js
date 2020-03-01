@@ -10,8 +10,9 @@ export const BoardSchema = {
     primaryKey: 'id',
     properties: {
         id: 'int',
-        name: { type: 'string', indexed: true },
-        description: 'string'
+        name: 'string',
+        description: 'string?',
+        categories: { type: 'list', objectType: CATEGORY_SCHEMA } //category relation
     }
 };
 
@@ -20,8 +21,8 @@ export const CategorySchema = {
     primaryKey: 'id',
     properties: {
         id: 'int',
-        name: { type: 'string', indexed: true},
-        boards: { type: 'list', objectType: BOARD_SCHEMA } //board relation
+        name: 'string',
+        products: { type: 'list', objectType: PRODUCT_SCHEMA } //product relation
     }
 };
 
@@ -30,10 +31,10 @@ export const ProductSchema = {
     primaryKey: 'id',
     properties: {
         id: 'int',
-        name: { type: 'string', indexed: true},
+        name: 'string',
         description: 'string?',
         image: 'string?',
-        categories: { type: 'list', objectType: CATEGORY_SCHEMA } //category relation
+        details: { type: 'list', objectType: DETAIL_SCHEMA } //detail relation
     }
 };
 
@@ -44,7 +45,8 @@ export const DetailSchema = {
         id: 'int',
         attribute: 'string',
         value: 'string',
-        products: { type: 'list', objectType: PRODUCT_SCHEMA } //product relation
+        notes: { type: 'list', objectType: NOTE_SCHEMA }, //note relation
+        checklists: { type: 'list', objectType: CHECKLIST_SCHEMA } //checklist relation
     }
 };
 
@@ -54,7 +56,7 @@ export const NoteSchema = {
     properties: {
         id: 'int',
         value: 'string',
-        details: { type: 'list', objectType: DETAIL_SCHEMA } //product relation
+        
     }
 };
 
@@ -64,6 +66,14 @@ export const ChecklistSchema = {
     properties: {
         id: 'int',
         value: 'string',
-        notes: { type: 'list', objectType: NOTE_SCHEMA } //note relation
+        
     }
+};
+
+export const databaseOptions = {
+    path: 'katanote.realm',
+    schema: [
+        BoardSchema, CategorySchema, ProductSchema, DetailSchema, NoteSchema, ChecklistSchema
+    ],
+    schemaVersion: 1
 };
