@@ -1,17 +1,17 @@
 import React, { Component } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Container, Header, Left, Right, Body, Button, Icon, Content, Title, Item, Input, Form, Textarea, Text, Toast } from 'native-base'
+import {openDatabase} from 'react-native-sqlite-storage';
 
-import {databaseOptions, BOARD_SCHEMA, BoardSchema} from '../database/allSchemas';
-const Realm = require('realm');
+var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
 
 export default class AddBoard extends Component {
 
     constructor(props){
         super(props);
         this.state = {
-            nameBoard: '',
-            descBoard: '',
+            name_board: '',
+            desc_board: '',
             showToast: false,
             loading: false,
             isError: false
@@ -27,63 +27,69 @@ export default class AddBoard extends Component {
         });
     }
 
-    addBoard() {
-        Realm.open(databaseOptions)
-        .then(realm => {
-            if(this.state.nameBoard){
-                let sort = realm.objects(BOARD_SCHEMA).max('id');
-                let ID = sort ? sort + 1 : 1;
-                realm.write(() => {
-                    realm.create(BOARD_SCHEMA, {
-                        id: ID,
-                        name: this.state.nameBoard,
-                        description: this.state.descBoard
-                    })
+    addBoard = () => {
+        try {
+            if(this.state.name_board){
+                db.transaction((tx) => {
+                    tx.executeSql(
+                        'INSERT INTO boards (name, description) VALUES (?,?)',
+                        [this.state.name_board, this.state.desc_board],
+                        (tx, result) => {
+                            console.log('Results', result.rowsAffected);
+                            if(result.rowsAffected > 0){
+                                this.toastMessage('New board was added!','success');
+                                this.props.navigation.push('Home');
+                            }
+                            else{
+                                this.toastMessage('Adding new board failed!','danger');
+                            }
+                        }
+                    );
                 });
-                this.props.navigation.navigate('Home');
-                this.toastMessage('Data saved!','success');
-                realm.close();
             }
             else{
-                this.setState({isError: true});
+                this.setState({ isError: true });
             }
-        })
-        .catch(error =>{
+        } catch (error) {
+            this.toastMessage('Something wrong','danger')
             console.log(error);
-            this.toastMessage('Something wrong!','danger');
-        });
+        }
     }
 
     render() {
         return (
-            <Container>
-                <Header androidStatusBarColor='#34a869' noShadow style={styles.container}>
-                    <Left>
-                        <Button transparent onPress={() => this.props.navigation.goBack()}>
-                            <Icon name='arrow-round-back' style={styles.icon} />
-                        </Button>
-                    </Left>
-                    <Body>
-                        <Title style={styles.title} >Create Board</Title>
-                    </Body>
-                    <Right/>
-                </Header>
-                <Content contentContainerStyle={styles.content}>
+            <Container style={styles.container}>
+                <View style={styles.head}>
+                    <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
+                        <Left>
+                            <Button transparent onPress={() => this.props.navigation.goBack()}>
+                                <Icon name='arrow-back' style={styles.icon} />
+                            </Button>
+                        </Left>
+                        <Body/>
+                        <Right/>
+                    </Header>
+                    <Text style={styles.title}>Create Board</Text>
+                </View>
+                <View style={styles.content} >
                     <Form>
                         <Item regular style={styles.form} >
-                            <Input placeholderTextColor='grey' placeholder='Title' onChangeText={(text) => this.setState({nameBoard: text})} />
+                            <Input placeholderTextColor='grey' placeholder='Title' onChangeText={(text) => this.setState({name_board: text})} value={this.state.name_board} />
                         </Item>
                         {
                             this.state.isError ? 
                             <Text style={styles.textError}>Please fill the name field!</Text>
                             : <Text style={styles.textError}></Text>
                         }
-                        <Textarea regular style={styles.form} placeholderTextColor='grey' bordered rowSpan={5} placeholder='Description' onChangeText={(text) => this.setState({descBoard:text})} />
-                        <Button block style={styles.button} onPress={() => this.addBoard()}>
+                        <Item regular style={styles.form} >
+                            <Input placeholderTextColor='grey' placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} />
+                        </Item>
+                        {/* <Textarea regular style={styles.form} placeholderTextColor='grey' bordered rowSpan={5} placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} /> */}
+                        <Button block style={styles.button} onPress={this.addBoard.bind(this)} >
                             <Text style={styles.textButton} >Create</Text>
                         </Button>
                     </Form>
-                </Content>
+                </View>
             </Container>
         )
     }
@@ -91,25 +97,44 @@ export default class AddBoard extends Component {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#39b772'
+        backgroundColor: 'white',
+        flex:1
+    },
+    head: {
+        backgroundColor: '#39b772',
+        flex:1,
+        position: 'absolute',
+        top:0,
+        left:0,
+        right:0,
+        height: 200
+    },
+    header: {
+        backgroundColor: 'transparent'
     },
     content: {
-        padding: 20
+        marginTop: 120,
+        margin: 20,
+        paddingVertical: 50,
+        paddingHorizontal: 25,
+        elevation: 25,
+        borderRadius: 25,
+        shadowColor: '#fefefe',
+        shadowOpacity: 0.1,
+        backgroundColor: 'white'
     },
     icon: {
-        color: 'white'
+        color: 'white',
+        fontSize: 27
     },
     title: {
-        fontWeight: 'bold'
+        fontWeight: 'bold',
     },
     form: {
         borderRadius: 10,
     },
     button: {
-        width: 100,
-        alignSelf: 'flex-end',
-        marginTop: 20,
-        //elevation: 0,
+        marginTop: 50,
         backgroundColor: '#39b772',
         borderRadius: 10
     },
@@ -121,5 +146,11 @@ const styles = StyleSheet.create({
         fontSize: 12,
         padding: 0,
         margin: 0
+    },
+    title: {
+        fontSize: 27,
+        fontWeight: 'bold',
+        color: 'white',
+        textAlign: 'center'
     }
 })

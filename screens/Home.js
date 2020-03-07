@@ -1,23 +1,37 @@
 import React, { Component } from 'react'
 import { Text, StyleSheet, View, Dimensions, FlatList } from 'react-native'
+import Animated from 'react-native-reanimated'
 import { Container, Header, Icon, Left, Right, Body, Button, Spinner } from 'native-base'
+import {openDatabase} from 'react-native-sqlite-storage';
 
-const Realm = require('realm');
-import {databaseOptions, BOARD_SCHEMA, BoardSchema} from '../database/allSchemas';
+var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
 
-// const formatData = (data, numColumns) => {
-//     const numberOfFullRows = Math.floor(data.length / numColumns);
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
-//     let numberOfElementsLastRow = data.length - (numberOfFullRows * numColumns);
-//     while (numberOfElementsLastRow !== numColumns && numberOfElementsLastRow !== 0) {
-//         data.push({ key: `blank-${numberOfElementsLastRow}`, empty: true });
-//         numberOfElementsLastRow++;
-//     }
+const formatData = (data, numColumns) => {
+    const numberOfFullRows = Math.floor(data.length / numColumns);
 
-//     return data;
-// };
+    let numberOfElementsLastRow = data.length - (numberOfFullRows * numColumns);
+    while (numberOfElementsLastRow !== numColumns && numberOfElementsLastRow !== 0) {
+        data.push({ key: `blank-${numberOfElementsLastRow}`, empty: true });
+        numberOfElementsLastRow++;
+    }
 
-// const numColumns = 2;
+    return data;
+};
+
+const numColumns = 2;
+
+const MAIN_COLOR = '#39b772';
+
+const HEADER_HEIGHT = 150;
+
+const scrollY = new Animated.Value(0);
+const diffClampScrollY = Animated.diffClamp(scrollY, 0, HEADER_HEIGHT);
+const headerY = Animated.interpolate(diffClampScrollY, {
+    inputRange: [0, HEADER_HEIGHT],
+    outputRange: [0, -HEADER_HEIGHT]
+})
 
 export default class Home extends Component {
 
@@ -25,21 +39,42 @@ export default class Home extends Component {
         super(props);
         this.state = {
             data: [],
-            loading: false,
+            loading: true,
+            showToast: false,
         }
     };
 
-    componentDidMount() {
-        Realm.open(databaseOptions)
-        .then(realm => {
-            let board = realm.objects(BOARD_SCHEMA);
-            this.setState({data: board});
-            console.log(this.state.data);
-        })
-        .catch(error => {
-            console.log(error);
+    toastMessage = (message, type) => {
+        Toast.show({
+            text: message,
+            duration: 5000,
+            type: type,
+            buttonText: 'Close',
         });
-    };
+    }
+
+    fetchData() {
+        db.transaction((tx) => {
+            tx.executeSql(
+                "SELECT * FROM boards", [],
+                (tx, results) => {
+                    var len = results.rows.length;
+                    if(len > 0){
+                        var data = results.rows.raw();
+                        this.setState({data: data});
+                        this.setState({loading: false});
+                    }
+                }, function(tx, err){
+                    console.log(err);
+                    this.toastMessage('Something','danger');
+                }
+            );
+        });
+    }
+
+    componentDidMount(){
+        this.fetchData();
+    }
 
     renderItem = ({ item, index }) => {
         if (item.empty === true) {
@@ -56,35 +91,44 @@ export default class Home extends Component {
     render() {
         return (
             <Container style={styles.container}>
-                <Header androidStatusBarColor='#34a869' noShadow style={styles.container}>
-                    <Left>
-                        <Button transparent onPress={() => this.props.navigation.toggleDrawer()}>
-                            <Icon name='menu' style={styles.icon} />
-                        </Button>
-                    </Left>
-                    <Body/>
-                    <Right>
-                        <Button transparent onPress={() => this.props.navigation.navigate('Search')}>
-                            <Icon name='search' style={styles.icon}/>
-                        </Button>
-                        <Button transparent onPress={() => this.props.navigation.navigate('AddBoard')}>
-                            <Icon name='add' style={styles.icon}/>
-                        </Button>
-                    </Right>
-                </Header>
-                <Text style={styles.title}>KataNote</Text>
-                <Text style={styles.subtitle}>your private catalogs and notes</Text>
-                {
-                    this.state.loading ? <Spinner/> :
-                    <FlatList 
-                        data={this.state.data}
-                        style={styles.list}
-                        renderItem={this.renderItem}
-                        // numColumns={numColumns}
-                        keyExtractor={item => item.id}
-                        showsVerticalScrollIndicator={false}
-                    />
-                }
+                <Animated.View style={styles.head}>
+                    <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
+                        <Left>
+                            <Button transparent onPress={() => this.props.navigation.toggleDrawer()}>
+                                <Icon name='menu' style={styles.icon} />
+                            </Button>
+                        </Left>
+                        <Body/>
+                        <Right>
+                            <Button transparent onPress={() => this.props.navigation.push('Search')}>
+                                <Icon name='search' style={styles.icon}/>
+                            </Button>
+                            <Button transparent onPress={() => this.props.navigation.push('AddBoard')}>
+                                <Icon name='add' style={styles.icon}/>
+                            </Button>
+                        </Right>
+                    </Header>
+                    <Text style={styles.title}>KataNote</Text>
+                    <Text style={styles.subtitle}>your private catalogs and notes</Text>
+                </Animated.View>
+                    {
+                        this.state.loading ? <Spinner style={styles.spinner}/> :
+                        <AnimatedFlatList
+                            bounces={false}
+                            scrollEventThrottle={5}
+                            onScroll={Animated.event([
+                                {
+                                    nativeEvent:{contentOffset: {y: scrollY}}
+                                }
+                            ])}
+                            data={formatData(this.state.data, numColumns)}
+                            contentContainerStyle={styles.list}
+                            renderItem={this.renderItem}
+                            numColumns={numColumns}
+                            keyExtractor={item => item.id}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    }
             </Container>
         )
     }
@@ -92,12 +136,34 @@ export default class Home extends Component {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#39b772'
+        backgroundColor: 'white',
+        flex:1
+    },
+    header: {
+        backgroundColor: 'transparent'
+    },
+    head: {
+        backgroundColor: MAIN_COLOR,
+        //paddingBottom: 50,
+        position: 'absolute',
+        top:0,
+        left:0,
+        right:0,
+        height: HEADER_HEIGHT,
+        elevation: 1000,
+        zIndex: 50,
+        transform: [{ translateY: headerY }]
+        //marginBottom: 20
     },
     list: {
-        marginTop: 10,
-        marginHorizontal: 15
+        paddingTop: HEADER_HEIGHT + 15,
+        padding: 15,
+        backgroundColor: 'transparent'
     },
+    titlePage: {
+        //paddingBottom: 20
+        //backgroundColor: '#39b772',
+    }, 
     title: {
         fontSize: 27,
         fontWeight: 'bold',
@@ -108,27 +174,23 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: 'normal',
         textAlign: 'center',
-        color: 'white',
-        marginBottom: 10
+        color: 'white'
     },
     icon: {
-        color: 'white'
+        color: 'white',
+        fontSize: 27
     },
     item: {
         backgroundColor: 'white',
-        margin: 7,
+        margin: 10,
         padding: 15,
-        flex: 1,
         borderRadius: 15,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 5,
-            height: 5,
-        },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
+        flex:1,
+        //shadowColor: '',
+        //shadowOpacity: 0.1,
+        //shadowRadius: 10,
         elevation: 5,
-        height: 80
+        height: Dimensions.get('window').width / numColumns
     },
     itemInvisible: {
         backgroundColor: 'transparent',
@@ -144,5 +206,13 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: '300',
         color: '#5e5e5e'
+    },
+    spinner: {
+        color: MAIN_COLOR,
+        flex:1,
+        paddingTop: HEADER_HEIGHT,
+        justifyContent: 'center',
+        alignContent: 'center',
+        zIndex: 50,
     }
 })
