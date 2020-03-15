@@ -1,8 +1,10 @@
 import React, { Component } from 'react'
-import { Text, StyleSheet, View, Dimensions, FlatList } from 'react-native'
+import { Text, StyleSheet, View, Dimensions, FlatList, TouchableWithoutFeedbackComponent } from 'react-native'
 import Animated from 'react-native-reanimated'
 import { Container, Header, Icon, Left, Right, Body, Button, Spinner } from 'native-base'
 import {openDatabase} from 'react-native-sqlite-storage';
+import { TouchableWithoutFeedback, TouchableOpacity, TouchableNativeFeedback } from 'react-native-gesture-handler';
+
 
 var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
 
@@ -24,7 +26,7 @@ const numColumns = 2;
 
 const MAIN_COLOR = '#39b772';
 
-const HEADER_HEIGHT = 150;
+const HEADER_HEIGHT = 130;
 
 const scrollY = new Animated.Value(0);
 const diffClampScrollY = Animated.diffClamp(scrollY, 0, HEADER_HEIGHT);
@@ -35,12 +37,14 @@ const headerY = Animated.interpolate(diffClampScrollY, {
 
 export default class Home extends Component {
 
+    _isMounted = false;
     constructor(props){
         super(props);
         this.state = {
             data: [],
-            loading: true,
-            showToast: false,
+            fetch: false,
+            loading: false,
+            showToast: false
         }
     };
 
@@ -53,16 +57,32 @@ export default class Home extends Component {
         });
     }
 
-    fetchData() {
+    componentDidMount(){
+        this.fetchData();
+        this.setState({loading: true});
+        this._isMounted = true;
+    }
+
+    componentWillUnmount(){
+        this._isMounted = false;
+    }
+
+    fetchData = () => {
         db.transaction((tx) => {
             tx.executeSql(
-                "SELECT * FROM boards", [],
+                "SELECT * FROM boards ORDER BY id DESC", [],
                 (tx, results) => {
                     var len = results.rows.length;
                     if(len > 0){
                         var data = results.rows.raw();
-                        this.setState({data: data});
-                        this.setState({loading: false});
+                        if(this._isMounted){
+                            this.setState({
+                                data: data
+                            });
+                        }
+                    }
+                    if(this._isMounted){
+                        this.setState({loading: false})
                     }
                 }, function(tx, err){
                     console.log(err);
@@ -72,8 +92,8 @@ export default class Home extends Component {
         });
     }
 
-    componentDidMount(){
-        this.fetchData();
+    handleNavigateAdd = () => {
+
     }
 
     renderItem = ({ item, index }) => {
@@ -82,8 +102,12 @@ export default class Home extends Component {
         }
         return (
             <View style={styles.item} >
-                <Text style={styles.board}>{item.name}</Text>
-                <Text style={styles.description}>{item.description ? item.description : ""}</Text>
+                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Categories', {board_id : item.id, name_board: item.name})}>
+                    <View style={styles.itemContent}>
+                        <Text style={styles.board}>{item.name}</Text>
+                        <Text style={styles.description}>{item.description ? item.description : ""}</Text>
+                    </View>
+                </TouchableNativeFeedback>
             </View>
         );
     };
@@ -95,40 +119,42 @@ export default class Home extends Component {
                     <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
                         <Left>
                             <Button transparent onPress={() => this.props.navigation.toggleDrawer()}>
-                                <Icon name='menu' style={styles.icon} />
+                                <Icon name='md-menu' style={styles.icon} />
                             </Button>
                         </Left>
                         <Body/>
                         <Right>
-                            <Button transparent onPress={() => this.props.navigation.push('Search')}>
-                                <Icon name='search' style={styles.icon}/>
+                            <Button transparent onPress={() => this.props.navigation.navigate('Search')}>
+                                <Icon name='md-search' style={styles.icon}/>
                             </Button>
-                            <Button transparent onPress={() => this.props.navigation.push('AddBoard')}>
-                                <Icon name='add' style={styles.icon}/>
+                            <Button transparent onPress={() => this.props.navigation.navigate('AddBoard')}>
+                                <Icon name='md-add' style={styles.icon}/>
                             </Button>
                         </Right>
                     </Header>
                     <Text style={styles.title}>KataNote</Text>
                     <Text style={styles.subtitle}>your private catalogs and notes</Text>
                 </Animated.View>
-                    {
-                        this.state.loading ? <Spinner style={styles.spinner}/> :
-                        <AnimatedFlatList
-                            bounces={false}
-                            scrollEventThrottle={5}
-                            onScroll={Animated.event([
-                                {
-                                    nativeEvent:{contentOffset: {y: scrollY}}
-                                }
-                            ])}
-                            data={formatData(this.state.data, numColumns)}
-                            contentContainerStyle={styles.list}
-                            renderItem={this.renderItem}
-                            numColumns={numColumns}
-                            keyExtractor={item => item.id}
-                            showsVerticalScrollIndicator={false}
-                        />
-                    }
+                {
+                    this.state.loading ? <Spinner style={styles.spinner}/> :
+                    <AnimatedFlatList
+                        bounces={false}
+                        scrollEventThrottle={16}
+                        onScroll={Animated.event([
+                            {
+                                nativeEvent:{contentOffset: {y: scrollY}}
+                            }
+                        ])}
+                        data={formatData(this.state.data, numColumns)}
+                        //extraData={this.state.refresh}
+                        ListEmptyComponent={<Text style={styles.blank}>Data kosong</Text>}
+                        contentContainerStyle={styles.list}
+                        renderItem={this.renderItem}
+                        numColumns={numColumns}
+                        keyExtractor={item => item.id}
+                        showsVerticalScrollIndicator={false}
+                    />
+                }
             </Container>
         )
     }
@@ -136,7 +162,7 @@ export default class Home extends Component {
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: 'white',
+        backgroundColor: '#fafafa',
         flex:1
     },
     header: {
@@ -156,8 +182,8 @@ const styles = StyleSheet.create({
         //marginBottom: 20
     },
     list: {
-        paddingTop: HEADER_HEIGHT + 15,
-        padding: 15,
+        paddingTop: HEADER_HEIGHT + 10,
+        padding: 10,
         backgroundColor: 'transparent'
     },
     titlePage: {
@@ -183,18 +209,19 @@ const styles = StyleSheet.create({
     item: {
         backgroundColor: 'white',
         margin: 10,
-        padding: 15,
-        borderRadius: 15,
+        //padding: 15,
+        borderRadius: 5,
         flex:1,
-        //shadowColor: '',
-        //shadowOpacity: 0.1,
-        //shadowRadius: 10,
-        elevation: 5,
+        elevation: 3,
         height: Dimensions.get('window').width / numColumns
     },
     itemInvisible: {
         backgroundColor: 'transparent',
         elevation: 0
+    },
+    itemContent: {
+        height: Dimensions.get('window').width / numColumns,
+        padding: 15
     },
     board: {
         fontSize: 16,
@@ -209,10 +236,18 @@ const styles = StyleSheet.create({
     },
     spinner: {
         color: MAIN_COLOR,
-        flex:1,
-        paddingTop: HEADER_HEIGHT,
+        //flex:1,
+        //paddingTop: HEADER_HEIGHT+50,
+        position: 'absolute',
+        top: Dimensions.get('window').height / 2,
+        left:0,
+        right:0,
+        zIndex: 50,
+    },
+    blank: {
+        paddingTop: Dimensions.get('window').height / 2,
         justifyContent: 'center',
         alignContent: 'center',
-        zIndex: 50,
+        textAlign: 'center'
     }
 })

@@ -1,12 +1,14 @@
 import React, { Component } from 'react'
 import { StyleSheet, View } from 'react-native'
-import { Container, Header, Left, Right, Body, Button, Icon, Content, Title, Item, Input, Form, Textarea, Text, Toast } from 'native-base'
+import { Container, Header, Left, Right, Body, Button, Icon, Content, Title, Item, Input, Form, Textarea, Text, Toast } from 'native-base';
+import { StackActions, NavigationActions } from 'react-navigation';
 import {openDatabase} from 'react-native-sqlite-storage';
 
 var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
 
 export default class AddBoard extends Component {
 
+    _isMounted = false;
     constructor(props){
         super(props);
         this.state = {
@@ -14,7 +16,7 @@ export default class AddBoard extends Component {
             desc_board: '',
             showToast: false,
             loading: false,
-            isError: false
+            isError: false,
         }
     }
 
@@ -25,6 +27,14 @@ export default class AddBoard extends Component {
             type: type,
             buttonText: 'Close',
         });
+    }
+
+    componentDidMount(){
+        this._isMounted = true;
+    }
+
+    componentWillUnmount(){
+        this._isMounted = false;
     }
 
     addBoard = () => {
@@ -38,7 +48,11 @@ export default class AddBoard extends Component {
                             console.log('Results', result.rowsAffected);
                             if(result.rowsAffected > 0){
                                 this.toastMessage('New board was added!','success');
-                                this.props.navigation.push('Home');
+                                const resetAction = StackActions.reset({
+                                    index: 0,
+                                    actions: [NavigationActions.navigate({ routeName: 'Home' })],
+                                });
+                                this.props.navigation.dispatch(resetAction);
                             }
                             else{
                                 this.toastMessage('Adding new board failed!','danger');
@@ -62,8 +76,8 @@ export default class AddBoard extends Component {
                 <View style={styles.head}>
                     <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
                         <Left>
-                            <Button transparent onPress={() => this.props.navigation.goBack()}>
-                                <Icon name='arrow-back' style={styles.icon} />
+                            <Button transparent onPress={() => this.props.navigation.navigate('Home')}>
+                                <Icon name='md-arrow-back' style={styles.icon} />
                             </Button>
                         </Left>
                         <Body/>
@@ -74,7 +88,7 @@ export default class AddBoard extends Component {
                 <View style={styles.content} >
                     <Form>
                         <Item regular style={styles.form} >
-                            <Input placeholderTextColor='grey' placeholder='Title' onChangeText={(text) => this.setState({name_board: text})} value={this.state.name_board} />
+                            <Input placeholderTextColor='grey' placeholder='Title' onChangeText={(text) => this._isMounted ? this.setState({name_board: text}) : null} value={this.state.name_board} />
                         </Item>
                         {
                             this.state.isError ? 
@@ -82,10 +96,10 @@ export default class AddBoard extends Component {
                             : <Text style={styles.textError}></Text>
                         }
                         <Item regular style={styles.form} >
-                            <Input placeholderTextColor='grey' placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} />
+                            <Input placeholderTextColor='grey' placeholder='Description' onChangeText={(text) => this._isMounted ? this.setState({desc_board:text}) : null} value={this.state.desc_board} />
                         </Item>
                         {/* <Textarea regular style={styles.form} placeholderTextColor='grey' bordered rowSpan={5} placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} /> */}
-                        <Button block style={styles.button} onPress={this.addBoard.bind(this)} >
+                        <Button block style={styles.button} onPress={this.addBoard} >
                             <Text style={styles.textButton} >Create</Text>
                         </Button>
                     </Form>
@@ -117,8 +131,8 @@ const styles = StyleSheet.create({
         margin: 20,
         paddingVertical: 50,
         paddingHorizontal: 25,
-        elevation: 25,
-        borderRadius: 25,
+        elevation: 5,
+        borderRadius: 10,
         shadowColor: '#fefefe',
         shadowOpacity: 0.1,
         backgroundColor: 'white'
@@ -131,7 +145,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     form: {
-        borderRadius: 10,
+        borderRadius: 5,
     },
     button: {
         marginTop: 50,

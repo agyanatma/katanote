@@ -53,11 +53,6 @@ export default class AddBoard extends Component {
         this.setState({ data: searchData, cancel: true });
     }
 
-    handleBack = () => {
-        this.props.navigation.goBack();
-    }
-
-
     componentDidMount(){
         this.fetchData();
     }
@@ -70,7 +65,9 @@ export default class AddBoard extends Component {
                     <Text style={styles.board}>{item.name}</Text>
                 </Left>
                 <Right>
-                    <Icon name="arrow-forward" style={styles.icon} />
+                    <Button transparent>
+                        <Icon name="arrow-forward" style={styles.icon} />
+                    </Button>
                 </Right>
             </View>
         );
@@ -83,7 +80,7 @@ export default class AddBoard extends Component {
                     <Item style={styles.search}>
                         <Icon name="search" style={styles.icon}/>
                         <Input onChangeText={(text) => this.handleSearch(text)} placeholder="Search" placeholderTextColor="#dddd"/>
-                        <TouchableWithoutFeedback onPress={this.handleBack}>
+                        <TouchableWithoutFeedback onPress={() => this.props.navigation.goBack()}>
                             <Text style={styles.cancel}>Cancel</Text>
                         </TouchableWithoutFeedback>
                     </Item>
@@ -122,7 +119,7 @@ const styles = StyleSheet.create({
     item: {
         flexDirection: 'row',
         paddingHorizontal: 20,
-        paddingVertical: 12,
+        //paddingVertical: 12,
         borderColor: '#dddd',
         borderBottomWidth: 0.5
         //backgroundColor: 'white',

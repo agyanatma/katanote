@@ -9,6 +9,7 @@ import { Container, Header, Content, Body, Text, Thumbnail, List, ListItem, Left
 import Home from '../screens/Home';
 import AddBoard from '../screens/AddBoard';
 import Search from '../screens/Search';
+import Categories from '../screens/Categories';
 import Settings from '../screens/Settings';
 import About from '../screens/About';
 import Help from '../screens/Help';
@@ -45,16 +46,21 @@ const CustomDrawerContentComponent = (props) => (
 
 );
 
+const SwitchNavigator = createSwitchNavigator({
+    AddBoard
+},
+{
+    headerMode: 'none'
+});
+
 const StackNavigator = createStackNavigator({
     Home,
     AddBoard,
-    Search
+    Search,
+    Categories
 },
 {
-    initialRouteName: 'Home',
-    headerMode: 'none',
-    defaultNavigationOptions: {
-    }
+    headerMode: 'none'
 });
 
 const DrawerNavigator = createDrawerNavigator({
