@@ -1,8 +1,7 @@
 import React, { Component } from 'react'
-import { StyleSheet, View, FlatList } from 'react-native'
+import { StyleSheet, View, FlatList, TouchableWithoutFeedback } from 'react-native'
 import { Container, Header, Left, Right, Body, Button, Icon, Content, Title, Item, Input, Form, Textarea, Text, Spinner, ListItem } from 'native-base'
 import {openDatabase} from 'react-native-sqlite-storage';
-import { TouchableOpacity, TouchableNativeFeedback, TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
 

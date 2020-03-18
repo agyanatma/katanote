@@ -1,12 +1,8 @@
 import React, { Component } from 'react'
-import { Text, StyleSheet, View, Dimensions, FlatList, TouchableWithoutFeedbackComponent } from 'react-native'
-import Animated from 'react-native-reanimated'
+import { Text, StyleSheet, View, Dimensions, FlatList, TouchableNativeFeedback } from 'react-native'
 import { Container, Header, Icon, Left, Right, Body, Button, Spinner } from 'native-base'
-import {openDatabase} from 'react-native-sqlite-storage';
-import { TouchableWithoutFeedback, TouchableOpacity, TouchableNativeFeedback } from 'react-native-gesture-handler';
-
-
-var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
+import Animated from 'react-native-reanimated'
+import DB from '../database';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 
@@ -25,7 +21,6 @@ const formatData = (data, numColumns) => {
 const numColumns = 2;
 
 const MAIN_COLOR = '#39b772';
-
 const HEADER_HEIGHT = 130;
 
 const scrollY = new Animated.Value(0);
@@ -67,33 +62,25 @@ export default class Home extends Component {
         this._isMounted = false;
     }
 
-    fetchData = () => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                "SELECT * FROM boards ORDER BY id DESC", [],
-                (tx, results) => {
-                    var len = results.rows.length;
-                    if(len > 0){
-                        var data = results.rows.raw();
-                        if(this._isMounted){
-                            this.setState({
-                                data: data
-                            });
-                        }
-                    }
-                    if(this._isMounted){
-                        this.setState({loading: false})
-                    }
-                }, function(tx, err){
-                    console.log(err);
-                    this.toastMessage('Something','danger');
+    fetchData = async () => {
+        try {
+            results = await DB.executeSql("SELECT * FROM boards ORDER BY id DESC", []);
+            var len = results.rows.length;
+            if(len > 0){
+                var data = results.rows.raw();
+                if(this._isMounted){
+                    this.setState({
+                        data: data
+                    });
                 }
-            );
-        });
-    }
-
-    handleNavigateAdd = () => {
-
+            }
+            if(this._isMounted){
+                this.setState({loading: false})
+            }
+        } catch (error) {
+            console.log(error);
+            this.toastMessage(error, 'danger');
+        }
     }
 
     renderItem = ({ item, index }) => {
@@ -102,7 +89,7 @@ export default class Home extends Component {
         }
         return (
             <View style={styles.item} >
-                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Categories', {board_id : item.id, name_board: item.name})}>
+                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Cards', {board_id : item.id, name_board: item.name})}>
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name}</Text>
                         <Text style={styles.description}>{item.description ? item.description : ""}</Text>
@@ -245,7 +232,7 @@ const styles = StyleSheet.create({
         zIndex: 50,
     },
     blank: {
-        paddingTop: Dimensions.get('window').height / 2,
+        paddingTop: Dimensions.get('window').height / 2 - HEADER_HEIGHT,
         justifyContent: 'center',
         alignContent: 'center',
         textAlign: 'center'

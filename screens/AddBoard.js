@@ -2,9 +2,7 @@ import React, { Component } from 'react'
 import { StyleSheet, View } from 'react-native'
 import { Container, Header, Left, Right, Body, Button, Icon, Content, Title, Item, Input, Form, Textarea, Text, Toast } from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
-import {openDatabase} from 'react-native-sqlite-storage';
-
-var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
+import DB from '../database';
 
 export default class AddBoard extends Component {
 
@@ -37,32 +35,26 @@ export default class AddBoard extends Component {
         this._isMounted = false;
     }
 
-    addBoard = () => {
+    addBoard = async () => {
+        const {name_board, desc_board} = this.state;
         try {
             if(this.state.name_board){
-                db.transaction((tx) => {
-                    tx.executeSql(
-                        'INSERT INTO boards (name, description) VALUES (?,?)',
-                        [this.state.name_board, this.state.desc_board],
-                        (tx, result) => {
-                            console.log('Results', result.rowsAffected);
-                            if(result.rowsAffected > 0){
-                                this.toastMessage('New board was added!','success');
-                                const resetAction = StackActions.reset({
-                                    index: 0,
-                                    actions: [NavigationActions.navigate({ routeName: 'Home' })],
-                                });
-                                this.props.navigation.dispatch(resetAction);
-                            }
-                            else{
-                                this.toastMessage('Adding new board failed!','danger');
-                            }
-                        }
-                    );
-                });
-            }
-            else{
-                this.setState({ isError: true });
+                results = await DB.executeSql('INSERT INTO boards (name, description) VALUES (?,?)', [name_board, desc_board]);
+                console.log('Results', results.rowsAffected);
+                if(results.rowsAffected > 0){
+                    this.toastMessage('New board was added!','success');
+                    const resetAction = StackActions.reset({
+                        index: 0,
+                        actions: [NavigationActions.navigate({ routeName: 'Home' })],
+                    });
+                    this.props.navigation.dispatch(resetAction);
+                }
+                else{
+                    this.toastMessage('Adding new board failed!','danger');
+                    if(this._isMounted){
+                        this.setState({ loading: false })
+                    }
+                }
             }
         } catch (error) {
             this.toastMessage('Something wrong','danger')

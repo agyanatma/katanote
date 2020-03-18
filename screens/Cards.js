@@ -1,37 +1,35 @@
 import React, { Component } from 'react'
-import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl } from 'react-native'
+import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableNativeFeedback } from 'react-native'
 import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast } from 'native-base'
-import {TouchableOpacity, TouchableNativeFeedback} from 'react-native-gesture-handler';
-import {openDatabase} from 'react-native-sqlite-storage';
-
-var db = openDatabase({ name: "katanote.db", createFromLocation: "~katanote.db", location: "Library" });
+import DB from '../database';
 
 const MAIN_COLOR = '#39b772';
 const HEADER_HEIGHT = 130;
 
-export default class Categories extends Component {
-    _isMounted = false;
 
+export default class Items extends Component {
+    _isMounted = false;
+    
     constructor(props){
         super(props);
         this.state = {
             data: [],
-            name_category: '',
+            name_card: '',
             search: '',
             loading: false,
             showToast: false,
             isRefreshing: false
         }
-        this.reloadData = [];
-        this.board_id = this.props.navigation.state.params.board_id,
-        this.name_board = this.props.navigation.state.params.name_board,
+        const {params} = this.props.navigation.state;
+        this.board_id = params.board_id,
+        this.name_board = params.name_board,
         this.searchHolder = [];
     }
 
     toastMessage = (message, type) => {
         Toast.show({
             text: message,
-            duration: 5000,
+            duration: 500,
             type: type,
             buttonText: 'Close',
         });
@@ -40,132 +38,67 @@ export default class Categories extends Component {
     componentDidMount(){
         this.setState({ loading: true });
         this.fetchData();
+        //this.reloadData = this.props.navigation.addListener('didFocus', this.fetchData());
         this._isMounted = true;
-        //console.log(this.state.name_category ? this.state.name_category : 'kosong');
     }
 
     componentWillUnmount(){
         this._isMounted = false;
-        //this.reloadData();
     }
 
-    fetchData() {
+    fetchData = async () => {
         try {
-            db.transaction((tx) => {
-                tx.executeSql(
-                    "SELECT * FROM categories WHERE board_id = ? ORDER BY id DESC", [this.board_id],
-                    (tx, results) => {
-                        var len = results.rows.length;
-                        //console.log(len);
-                        if(len > 0){
-                            var data = results.rows.raw();
-                            //console.log(data);
-                            if(this._isMounted){
-                                this.setState({
-                                    data: data
-                                });
-                                this.searchHolder = data;
-                            }
-                        }
-                        if(this._isMounted){
-                            this.setState({loading: false})
-                        }
-                    }, function(tx, err){
-                        console.log(err);
-                        this.toastMessage('Something wrong!','danger');
-                        if(this._isMounted){
-                            this.setState({loading: false});
-                        }
-                    }
-                );
-            });
-        } catch (error) {
-            console.log(error);
+            results = await DB.executeSql("SELECT * FROM cards WHERE board_id = ? ORDER BY id DESC", [this.board_id]);
+            var len = results.rows.length;
+            if(len > 0){
+                var data = results.rows.raw();
+                if(this._isMounted){
+                    this.setState({data: data});
+                    this.searchHolder = data;
+                }
+            }
             if(this._isMounted){
                 this.setState({loading: false});
             }
-        }
-        
-    }
-
-    onRefresh= () => {
-        try {
-            this.setState({ isRefreshing: true })
-            db.transaction((tx) => {
-                tx.executeSql(
-                    "SELECT * FROM categories WHERE board_id = ? ORDER BY id DESC", [this.board_id],
-                    (tx, results) => {
-                        var len = results.rows.length;
-                        if(len > 0){
-                            var data = results.rows.raw();
-                            if(this._isMounted){
-                                this.setState({
-                                    data: data,
-                                    isRefreshing: false
-                                });
-                                this.searchHolder = data;
-                            }
-                        }
-                        if(this._isMounted){
-                            this.setState({loading: false})
-                        }
-                    }, function(tx, err){
-                        console.log(err);
-                        this.toastMessage('Something wrong!','danger');
-                        if(this._isMounted){
-                            this.setState({loading: false, isRefreshing: false});
-                        }
-                    }
-                );
-            });
         } catch (error) {
             console.log(error);
-            if(this._isMounted){
-                this.setState({loading: false, isRefreshing: false});
+            this.toastMessage('Something Wrong','danger');
+            if (this._isMounted) {
+                this.setState({ loading: false });
             }
         }
     }
 
-    handleAdd = () => {
-        db.transaction((tx) => {
-            tx.executeSql(
-                'INSERT INTO categories (name, board_id) VALUES (?,?)',
-                [this.state.name_category, this.board_id],
-                (tx, result) => {
-                    console.log('Results', result.rowsAffected);
-                    if(result.rowsAffected > 0){
-                        this.toastMessage('New category was added!','success');
-                        if(this._isMounted){
-                            this.setState({
-                                name_category:'' 
-                            });
-                        }
-
-                        this.reloadData = this.props.navigation.addListener('didFocus', () => {
-                            this.onRefresh();
-                        });
-                        // const resetAction = StackActions.reset({
-                        //     index: 0,
-                        //     actions: [NavigationActions.navigate({ routeName: 'Categories' })],
-                        // });
-                        // this.props.navigation.dispatch(resetAction);
-                        //console.log(this.state.refresh == true ? 'true' : 'false');
-                    }
-                    else{
-                        this.toastMessage('Adding new board failed!','danger');
-                    }
-                }, function(tx, err){
-                    console.log(error);
-                    this.toastMessage('Something wrong','danger')
+    handleAdd = async () => {
+        const {name_card} = this.state;
+        try {
+            results = await DB.executeSql('INSERT INTO cards (name, board_id) VALUES (?,?)',[name_card, this.board_id]);
+            console.log('Results', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                if(this._isMounted){
+                    this.setState({name_card:'',loading: false});
                 }
-            );
-        });
+                await this.fetchData();
+            }
+            else{
+                this.toastMessage('Failed adding new card!','danger');
+                if (this._isMounted) {
+                    this.setState({ loading: false });
+                }
+            }
+        } catch (error) {
+            console.log(error);
+            this.toastMessage('Something wrong','danger');
+            if (this._isMounted) {
+                this.setState({ loading: false });
+            }
+        }
     }
 
-    handleSearch = text => {
+    handleSearch = () => {
         const searchData = this.searchHolder.filter(item => {      
             const itemData = `${item.name.toLowerCase()}`;
-            const textData = text.toLowerCase();
+            const textData = this.state.name_card.toLowerCase();
             return itemData.indexOf(textData) > -1;    
         });
         if(this._isMounted){
@@ -179,7 +112,7 @@ export default class Categories extends Component {
         }
         return (
             <View style={styles.item} >
-                <TouchableNativeFeedback>
+                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Detail', {card_id : item.id})}>
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name ? item.name : ""}</Text>
                     </View>
@@ -194,7 +127,7 @@ export default class Categories extends Component {
                 <View style={styles.head}>
                     <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
                         <Left>
-                            <Button transparent onPress={() => this.props.navigation.goBack()}>
+                            <Button transparent onPress={() => this.props.navigation.navigate('Home')}>
                                 <Icon name='md-arrow-back' style={styles.iconHeader} />
                             </Button>
                         </Left>
@@ -212,10 +145,10 @@ export default class Categories extends Component {
                 <View style={styles.searchBar}>
                     <Item style={styles.search}>
                             <Icon name="md-search" style={[styles.icon, styles.searchIcon]}/>
-                            <Input onChangeText={(text) => this.handleSearch(text), (name) => this._isMounted ? this.setState({name_category: name}) : null} value={this.state.name_category} 
+                            <Input onChangeText={(text) => this._isMounted ? this.setState({name_card: text}) : null } value={this.state.name_card} 
                             placeholder="Search or Add" placeholderTextColor="#dddd"/>
                             {
-                                this.state.name_category ?
+                                this.state.name_card ?
                                 <Button transparent onPress={this.handleAdd}>
                                     <Icon name="md-add" style={[styles.icon, styles.searchIcon]}/>
                                 </Button>
@@ -228,10 +161,14 @@ export default class Categories extends Component {
                     <FlatList
                         data={this.state.data}
                         extraData={this.state}
-                        //onRefresh={this.state.refresh}
                         //refreshing={this.state.isRefreshing}
                         //onRefresh={this.onRefresh}
-                        ListEmptyComponent={<Text style={styles.blank}>Data kosong</Text>}
+                        ListEmptyComponent={
+                            <View style={styles.blankSpace}>
+                                <Text style={styles.blank}>Didn't find any data...</Text>
+                                <Text style={styles.blank}>Add something above!</Text>
+                            </View>
+                        }
                         contentContainerStyle={styles.list}
                         renderItem={this.renderItem}
                         keyExtractor={item => item.id.toString()}
@@ -330,11 +267,22 @@ const styles = StyleSheet.create({
         right:0,
         zIndex: 50,
     },
-    blank: {
-        paddingTop: HEADER_HEIGHT,
+    blankSpace: {
+        // position:'absolute',
+        // top: 0,
+        // left:0,
+        // right:0,
+        // zIndex: 100
+        //backgroundColor: 'red',
+        height: Dimensions.get('window').height / 2,
         justifyContent: 'center',
         alignContent: 'center',
-        textAlign: 'center'
+    },
+    blank: {
+        //paddingTop: Dimensions.get('window').height / 2 - HEADER_HEIGHT ,
+        textAlign: 'center',
+        color: '#a5a5a5',
+        fontSize: 16
     },
     searchBar: {
         //backgroundColor: 'red',

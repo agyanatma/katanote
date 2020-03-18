@@ -9,7 +9,8 @@ import { Container, Header, Content, Body, Text, Thumbnail, List, ListItem, Left
 import Home from '../screens/Home';
 import AddBoard from '../screens/AddBoard';
 import Search from '../screens/Search';
-import Categories from '../screens/Categories';
+import Cards from '../screens/Cards';
+import Detail from '../screens/Detail';
 import Settings from '../screens/Settings';
 import About from '../screens/About';
 import Help from '../screens/Help';
@@ -41,23 +42,16 @@ const CustomDrawerContentComponent = (props) => (
                 </ListItem>
             </List>
         </Content>
-
     </Container>
 
 );
-
-const SwitchNavigator = createSwitchNavigator({
-    AddBoard
-},
-{
-    headerMode: 'none'
-});
 
 const StackNavigator = createStackNavigator({
     Home,
     AddBoard,
     Search,
-    Categories
+    Cards,
+    Detail
 },
 {
     headerMode: 'none'
