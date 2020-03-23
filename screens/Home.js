@@ -134,7 +134,12 @@ export default class Home extends Component {
                         ])}
                         data={formatData(this.state.data, numColumns)}
                         //extraData={this.state.refresh}
-                        ListEmptyComponent={<Text style={styles.blank}>Data kosong</Text>}
+                        ListEmptyComponent={
+                            <View style={styles.blankSpace}>
+                                <Text style={styles.blank}>Didn't find any data...</Text>
+                                <Text style={styles.blank}>Add something above!</Text>
+                            </View>
+                        }
                         contentContainerStyle={styles.list}
                         renderItem={this.renderItem}
                         numColumns={numColumns}
@@ -231,10 +236,14 @@ const styles = StyleSheet.create({
         right:0,
         zIndex: 50,
     },
-    blank: {
-        paddingTop: Dimensions.get('window').height / 2 - HEADER_HEIGHT,
+    blankSpace: {
+        height: Dimensions.get('window').height / 2,
         justifyContent: 'center',
         alignContent: 'center',
-        textAlign: 'center'
-    }
+    },
+    blank: {
+        textAlign: 'center',
+        color: '#a5a5a5',
+        fontSize: 16
+    },
 })

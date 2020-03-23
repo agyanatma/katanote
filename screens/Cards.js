@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
-import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableNativeFeedback } from 'react-native'
-import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast } from 'native-base'
+import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableNativeFeedback, Keyboard } from 'react-native'
+import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast } from 'native-base';
+import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 
 const MAIN_COLOR = '#39b772';
@@ -18,7 +19,9 @@ export default class Items extends Component {
             search: '',
             loading: false,
             showToast: false,
-            isRefreshing: false
+            isRefreshing: false,
+            editable: false,
+            name_board: ''
         }
         const {params} = this.props.navigation.state;
         this.board_id = params.board_id,
@@ -36,10 +39,12 @@ export default class Items extends Component {
     }
 
     componentDidMount(){
-        this.setState({ loading: true });
         this.fetchData();
         //this.reloadData = this.props.navigation.addListener('didFocus', this.fetchData());
         this._isMounted = true;
+        if(this._isMounted){
+            this.setState({ loading: true, name_board: this.name_board });
+        }
     }
 
     componentWillUnmount(){
@@ -95,6 +100,14 @@ export default class Items extends Component {
         }
     }
 
+    handleBack = () => {
+        const resetAction = StackActions.reset({
+            index: 0,
+            actions: [NavigationActions.navigate({ routeName: 'Home' })],
+        });
+        this.props.navigation.dispatch(resetAction);
+    }
+
     handleSearch = () => {
         const searchData = this.searchHolder.filter(item => {      
             const itemData = `${item.name.toLowerCase()}`;
@@ -106,13 +119,29 @@ export default class Items extends Component {
         }
     }
 
+    handleEdit = async () => {
+        const {name_board} = this.state;
+        try {
+            if(name_board){
+                results = await DB.executeSql("UPDATE boards set name = ? where id = ?", [name_board, this.board_id]);
+                console.log('Results', results.rowsAffected);
+                if(results.rowsAffected > 0){
+                    Keyboard.dismiss();   
+                }
+            }
+        } catch (error) {
+            console.log(error);
+            this.toastMessage('Something Wrong','danger');
+        }
+    }
+
     renderItem = ({ item, index }) => {
         if (item.empty === true) {
             return <View style={[styles.item, styles.itemInvisible]} />;
         }
         return (
             <View style={styles.item} >
-                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Detail', {card_id : item.id})}>
+                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Detail', {card_id : item.id, name_card: item.name, board: this.name_board})}>
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name ? item.name : ""}</Text>
                     </View>
@@ -122,24 +151,36 @@ export default class Items extends Component {
     };
 
     render() {
+        const {editable, name_board} = this.state;
         return (
             <Container style={styles.container}>
                 <View style={styles.head}>
                     <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
                         <Left>
-                            <Button transparent onPress={() => this.props.navigation.navigate('Home')}>
+                            <Button transparent onPress={this.handleBack}>
                                 <Icon name='md-arrow-back' style={styles.iconHeader} />
                             </Button>
                         </Left>
                         <Body/>
                         <Right>
-                            <Button transparent onPress={() => this.props.navigation.push('AddBoard')}>
+                            <Button transparent>
                                 <Icon name='md-more' style={styles.iconHeader}/>
                             </Button>
                         </Right>
                     </Header>
-                    <View style={{marginLeft: 40}}>
-                        <Text style={styles.title}>{this.name_board}</Text>
+                    <View style={{marginHorizontal: 40}}>
+                        {
+                            editable ?
+                            <TextInput style={styles.titleEdit} 
+                                onChangeText={(text) => this.setState({name_board: text})} 
+                                value={name_board}
+                                onBlur={() => this.setState({editable: false})}
+                                onSubmitEditing={this.handleEdit}
+                                autoFocus
+                            />
+                            : <Text style={styles.title} onPress={() => this.setState({editable: true})}>{name_board}</Text>
+
+                        }
                     </View>
                 </View>
                 <View style={styles.searchBar}>
@@ -212,7 +253,16 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 27,
         fontWeight: 'bold',
-        color: 'white'
+        color: 'white',
+    },
+    titleEdit: {
+        fontSize: 27,
+        fontWeight: 'bold',
+        color: 'white',
+        margin: 0,
+        padding: 0,
+        borderBottomWidth: 2,
+        borderColor: '#34a869'
     },
     subtitle: {
         fontSize: 14,
