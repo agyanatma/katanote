@@ -141,7 +141,8 @@ export default class Items extends Component {
         }
         return (
             <View style={styles.item} >
-                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Detail', {card_id : item.id, name_card: item.name, board: this.name_board})}>
+                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Detail', 
+                {card_id : item.id, name_card: item.name, board_id: this.board_id, name_board: this.name_board})}>
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name ? item.name : ""}</Text>
                     </View>

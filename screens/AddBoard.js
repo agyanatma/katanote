@@ -12,7 +12,6 @@ export default class AddBoard extends Component {
         this.state = {
             name_board: '',
             desc_board: '',
-            showToast: false,
             loading: false,
             isError: false,
         }
@@ -38,7 +37,7 @@ export default class AddBoard extends Component {
     addBoard = async () => {
         const {name_board, desc_board} = this.state;
         try {
-            if(this.state.name_board){
+            if(name_board){
                 results = await DB.executeSql('INSERT INTO boards (name, description) VALUES (?,?)', [name_board, desc_board]);
                 console.log('Results', results.rowsAffected);
                 if(results.rowsAffected > 0){
@@ -55,6 +54,9 @@ export default class AddBoard extends Component {
                         this.setState({ loading: false })
                     }
                 }
+            }
+            if(this._isMounted){
+                this.setState({ isError: true });
             }
         } catch (error) {
             this.toastMessage('Something wrong','danger')
