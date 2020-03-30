@@ -54,18 +54,22 @@ export default class Home extends Component {
 
     componentDidMount(){
         this.fetchData();
+        this.update = this.props.navigation.addListener('willFocus', async () => {
+            this.fetchData();
+        });
         this.setState({loading: true});
         this._isMounted = true;
     }
 
     componentWillUnmount(){
         this._isMounted = false;
+        this.update.remove();
     }
 
     fetchData = async () => {
         try {
             results = await DB.executeSql("SELECT * FROM boards ORDER BY id DESC", []);
-            var len = results.rows.length;
+            let len = results.rows.length;
             if(len > 0){
                 var data = results.rows.raw();
                 if(this._isMounted){

@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableNativeFeedback, Keyboard } from 'react-native'
-import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast } from 'native-base';
+import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast, Thumbnail } from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 
@@ -21,7 +21,8 @@ export default class Items extends Component {
             showToast: false,
             isRefreshing: false,
             editable: false,
-            name_board: ''
+            name_board: '',
+            image: null
         }
         const {params} = this.props.navigation.state;
         this.board_id = params.board_id,
@@ -40,7 +41,9 @@ export default class Items extends Component {
 
     componentDidMount(){
         this.fetchData();
-        //this.reloadData = this.props.navigation.addListener('didFocus', this.fetchData());
+        this.update = this.props.navigation.addListener('willFocus', async () => {
+            this.fetchData();
+        });
         this._isMounted = true;
         if(this._isMounted){
             this.setState({ loading: true, name_board: this.name_board });
@@ -49,12 +52,13 @@ export default class Items extends Component {
 
     componentWillUnmount(){
         this._isMounted = false;
+        this.update.remove();
     }
 
     fetchData = async () => {
         try {
             results = await DB.executeSql("SELECT * FROM cards WHERE board_id = ? ORDER BY id DESC", [this.board_id]);
-            var len = results.rows.length;
+            let len = results.rows.length;
             if(len > 0){
                 var data = results.rows.raw();
                 if(this._isMounted){
@@ -78,7 +82,7 @@ export default class Items extends Component {
         const {name_card} = this.state;
         try {
             results = await DB.executeSql('INSERT INTO cards (name, board_id) VALUES (?,?)',[name_card, this.board_id]);
-            console.log('Results', results.rowsAffected);
+            console.log('New card added: ', results.rowsAffected);
             if(results.rowsAffected > 0){
                 if(this._isMounted){
                     this.setState({name_card:'',loading: false});
@@ -101,11 +105,7 @@ export default class Items extends Component {
     }
 
     handleBack = () => {
-        const resetAction = StackActions.reset({
-            index: 0,
-            actions: [NavigationActions.navigate({ routeName: 'Home' })],
-        });
-        this.props.navigation.dispatch(resetAction);
+        this.props.navigation.goBack();
     }
 
     handleSearch = () => {
@@ -124,7 +124,7 @@ export default class Items extends Component {
         try {
             if(name_board){
                 results = await DB.executeSql("UPDATE boards set name = ? where id = ?", [name_board, this.board_id]);
-                console.log('Results', results.rowsAffected);
+                console.log('New board updated: ', results.rowsAffected);
                 if(results.rowsAffected > 0){
                     Keyboard.dismiss();   
                 }

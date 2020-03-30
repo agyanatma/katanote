@@ -1,22 +1,29 @@
 import React, { Component } from 'react'
-import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableWithoutFeedback, Keyboard, Image } from 'react-native'
-import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast, ListItem, ActionSheet, Thumbnail } from 'native-base'
+import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableWithoutFeedback, Keyboard, Image, ScrollView } from 'react-native'
+import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast, ListItem, ActionSheet, Thumbnail, CheckBox } from 'native-base'
 import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 import ImagePicker from 'react-native-image-picker';
+import Lightbox from 'react-native-lightbox';
 
 
 const MAIN_COLOR = '#39b772';
 const HEADER_HEIGHT = 130;
+const MAIN_TEXT = '#54595F';
 
 export default class Detail extends Component {
     constructor(props){
         super(props);
         this.state = {
-            data: [],
-            editable: false,
+            editable_title: false,
+            editable_desc: false,
             name_card: '',
-            image: ''
+            description_card: '',
+            image: null,
+            checklist: [],
+            checkbox_value: '',
+            check_done: true,
+            showCheck: false
         }
         const {params} = this.props.navigation.state;
         this.card_id = params.card_id;
@@ -26,39 +33,18 @@ export default class Detail extends Component {
     }
 
     componentDidMount(){
+        this.getCardDescription();
+        this.getChecklists();
         this.getImageCard();
         this._isMounted = true;
         if(this._isMounted){
             this.setState({name_card: this.name_card});
         }
-        //console.log(this.state.image);
     }
 
     componentWillUnmount(){
         this._isMounted = false;
     }
-
-    // getDetailCard = async () => {
-    //     try {
-    //         results = await DB.executeSql("SELECT * FROM details WHERE card_id = ?", [this.card_id]);
-    //         var len = results.rows.length;
-    //         if(len > 0){
-    //             var data = results.rows.raw();
-    //             if(this._isMounted){
-    //                 this.setState({data: data});
-    //             }
-    //         }
-    //         if(this._isMounted){
-    //             this.setState({loading: false});
-    //         }
-    //     } catch (error) {
-    //         console.log(error);
-    //         //this.toastMessage('Something Wrong','danger');
-    //         if (this._isMounted) {
-    //             this.setState({ loading: false });
-    //         }
-    //     }
-    // }
 
     toastMessage = (message, type) => {
         Toast.show({
@@ -69,56 +55,8 @@ export default class Detail extends Component {
         });
     }
 
-    getImageCard = async () => {
-        try {
-            results = await DB.executeSql("SELECT * FROM images WHERE card_id=?", [this.card_id]);
-            let image = results.rows.item(0).uri;
-            console.log(image);
-            if(results){
-                if(this._isMounted){
-                    this.setState({ image });
-                }
-                //console.log('has image');
-            }
-            //console.log(results.rows.item(0).image);
-        } catch (error) {
-            console.log(error);
-        }
-    }
-
-    handleAddImage = () => {
-        const options = {
-            title: 'Select Image',
-            noData: true,
-            mediaType: 'photo',
-            storageOptions: {
-                skipBackup: true,
-                path: 'Katanote',
-            },
-        }
-
-        ImagePicker.showImagePicker(options, async (response) => {
-            console.log(response.uri);
-            try {
-                results = await DB.executeSql("INSERT INTO images (uri, card_id) VALUES (?,?)", [response.uri, this.card_id]);
-                if(results.rowsAffected > 0){
-                    console.log('Results',results.rowsAffected);
-                    await this.getImageCard();
-                } 
-            } catch (error) {
-                console.log(error); 
-            }
-        });
-
-
-    }
-
     handleBack = () => {
-        const resetAction = StackActions.reset({
-            index: 0,
-            actions: [NavigationActions.navigate({routeName:'Cards', params: {board_id: this.board_id, name_board: this.name_board}})],
-        });
-        this.props.navigation.dispatch(resetAction);
+        this.props.navigation.goBack();
     }
 
     handleEdit = async () => {
@@ -127,9 +65,7 @@ export default class Detail extends Component {
             if(name_card){
                 results = await DB.executeSql("UPDATE cards SET name = ? where id = ?", [name_card, this.card_id]);
                 console.log('Results', results.rowsAffected);
-                if(results.rowsAffected > 0){
-                    console.log('Results:', resul)
-                }
+                Keyboard.dismiss();
             }
         } catch (error) {
             console.log(error);
@@ -137,57 +73,245 @@ export default class Detail extends Component {
         }
     }
 
+    handleCancelEdit = () => {
+        if(this._isMounted){
+            this.setState({ editable_title: false, name_card: this.name_card});
+        }
+    }
+
+    handleAddChecklist = async () => {
+        const {checkbox_value} = this.state;
+        try {
+            if(checkbox_value){
+                results = await DB.executeSql('INSERT INTO checkbox (value, card_id) VALUES (?,?)', [checkbox_value, this.card_id]);
+                console.log('Results', results.rowsAffected);
+                if(results.rowsAffected > 0){
+                    if(this._isMounted){
+                        this.setState({ checkbox_value: '' })
+                    }
+                    this.getChecklists();
+                }
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    getCardDescription = async () => {
+        try {
+            results = await DB.executeSql('SELECT description FROM cards WHERE id=?', [this.card_id]);
+            //console.log(results.rows.raw());
+            if(results.rows.length > 0){
+                let description = results.rows.item(0).description;
+                //console.log(description);
+                if(this._isMounted){
+                    this.setState({ description_card: description });
+                }
+            }
+        } catch(error) {
+            console.log(error);
+        }
+    }
+
+    handleUpdateDescription = async () => {
+        const {description_card} = this.state;
+        try {
+            results = await DB.executeSql('UPDATE cards SET description=? WHERE id=?', [description_card, this.card_id]);
+            console.log('Card description updated: ', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                if(this._isMounted){
+                    this.setState({ editable_desc: false });
+                }
+                this.getCardDescription();
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    getChecklists = async () => {
+        try {
+            results = await DB.executeSql('SELECT * FROM checkbox WHERE card_id=?', [this.card_id]);
+            //console.log(results.rows.length);
+            if(results.rows.length > 0){
+                if(this._isMounted){
+                    this.setState({ checklist: results.rows.raw(), showCheck: true });
+                    //console.log(this.state.checklist)
+                }
+            }
+            else{
+                if(this._isMounted){
+                    this.setState({ showCheck: false });
+                }
+            }
+        } catch (error) {
+            console.log(error);
+            if(this._isMounted){
+                this.setState({ showCheck: false });
+            }
+        }
+    }
+
+    // showChecklists = () => {
+    //     const {checklist, editable_title} = this.state;
+    //     checklist.map(item => {
+    //         return(
+    //             <ListItem>
+    //                 <CheckBox checked={item.done == 0 ? false : true} />
+    //                 <Body>
+    //                     <Text>{item.value}</Text>
+    //                 </Body>
+    //             </ListItem>
+    //         );
+    //     })
+    // }
+
+    handleChecked = async (item) => {
+        try {
+            let done = item.done == 0 ? 1 : 0 
+            results = await DB.executeSql('UPDATE checkbox SET done=? WHERE id=?', [done, item.id]);
+            console.log('Change checked :',results.rowsAffected);
+            if(results.rowsAffected > 0){
+                this.getChecklists();
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    } 
+
+    handleAddImage = () => {
+        const {image} = this.state;
+        const options = {
+            title: 'Select Image',
+            noData: true,
+            mediaType: 'photo',
+            maxWidth: 500,
+            storageOptions: {
+                skipBackup: true,
+                path: 'Katanote',
+            },
+        }
+
+        ImagePicker.showImagePicker(options, async (response) => {
+            //console.log(response);
+            try {
+                switch (image) {
+                    case null:
+                        results = await DB.executeSql("INSERT INTO images (uri, card_id) VALUES (?,?)", [response.uri, this.card_id]);
+                        if(results.rowsAffected > 0){
+                            console.log('New image added: ',results.rowsAffected);
+                            if(this._isMounted){
+                                this.setState({ image: response.uri});
+                            }
+                        } 
+                        break;
+                    default:
+                        results = await DB.executeSql("UPDATE images SET uri=? WHERE card_id=?", [response.uri, this.card_id]);
+                        if(results.rowsAffected > 0){
+                            console.log('New image updated: ',results.rowsAffected);
+                            if(this._isMounted){
+                                this.setState({ image: response.uri});
+                            }
+                        } 
+                        break;
+                }
+                
+            } catch (error) {
+                console.log(error);
+            }
+        });
+    }
+
+    getImageCard = async () => {
+        try {
+            results = await DB.executeSql("SELECT * FROM images WHERE card_id=?", [this.card_id]);
+            //console.log(results.length);
+            let len = results.rows.length;
+            if(len > 0){
+                if(this._isMounted){
+                    this.setState({ image: results.rows.item(0).uri });
+                }
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
     render() {
-        const {editable, name_card, image} = this.state;
+        const {editable_title, editable_desc, name_card, image, checklist, checkbox_value, showCheck, description_card} = this.state;
         return (
             <Container style={styles.container}>
-                <View style={styles.head}>
-                    <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
+                <Header androidStatusBarColor='#34a869' style={styles.header}>
+                    {
+                        editable_title ?
+                        <Left>
+                            <Button transparent onPress={this.handleCancelEdit}>
+                                <Icon name='md-close' style={styles.iconHeader}/>
+                            </Button>
+                        </Left> :
                         <Left>
                             <Button transparent onPress={this.handleBack}>
                                 <Icon name='md-arrow-back' style={styles.iconHeader} />
                             </Button>
                         </Left>
-                        <Body/>
+                    }
+                    <Body/>
+                    {
+                        editable_title ?
                         <Right>
-                            { 
-                            image == '' ?
-                                <Button transparent onPress={this.handleAddImage}>
-                                    <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.iconHeader}/>
-                                </Button>
-                            : null
-                            }
+                            <Button transparent onPress={this.handleEdit}>
+                                <Icon type='Ionicons' name='md-checkmark' style={styles.iconHeader}/>
+                            </Button>
+                        </Right> :
+                        <Right>
+                            <Button transparent onPress={this.handleAddImage}>
+                                <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.iconHeader}/>
+                            </Button>
                             <Button transparent>
                                 <Icon name='md-more' style={styles.iconHeader}/>
                             </Button>
                         </Right>
-                    </Header>
-                    <View style={{marginHorizontal: 40}}>
+
+                    }
+                </Header>
+                <ScrollView style={{flex: 1}}>
+                    <View style={styles.head}>
                         {
-                            editable ?
+                            editable_title ?
                             <TextInput style={styles.titleEdit} 
                                 onChangeText={(text) => this.setState({name_card: text})} 
                                 value={name_card}
-                                onBlur={() => this.setState({editable: false})}
+                                onBlur={() => this.setState({editable_title: false})}
                                 onSubmitEditing={this.handleEdit}
                                 autoFocus
                             />
-                            : <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title} onPress={() => this.setState({editable: true})}>{name_card}</Text>
+                            : <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title} onPress={() => this.setState({editable_title: true})}>{name_card}</Text>
 
                         }
                         <Text style={styles.subtitle}>{`Item from ${this.name_board}`}</Text>
                     </View>
-                </View>
-                <View style={styles.detailContainer}>
-                    <View style={styles.detail}>
-                        {
-                            image ? 
-                            <Thumbnail style={{marginBottom: 20, borderWidth: 1, borderColor: '#dddd', height:100, width: 100}} square large source={{uri: image}} />
-                            //<Image style={{marginBottom: 20, height: 100, resizeMode: 'contain', flexDirection: 'row', backgroundColor: 'red' }} source={{uri: image}} />
-                            : null
-                        }
-                        <Text style={styles.textDefault}>Edit description...</Text>
-                    </View>
+                    {
+                        editable_desc ?
+                        <View style={styles.description}>
+                            <Button transparent onPress={() => this.setState({ editable_desc: false })}>
+                                <Icon type='Ionicons' name='md-close'style={styles.textDefault, styles.iconDefault} />
+                            </Button>
+                            <TextInput placeholder='Edit description...' 
+                                style={{color: MAIN_TEXT, width: '70%'}} 
+                                multiline={true} 
+                                numberOfLines={3} 
+                                value={description_card} 
+                                onChangeText={(text) => this.setState({ description_card : text })}
+                                autoFocus 
+                            />
+                            <Button transparent onPress={this.handleUpdateDescription}>
+                                <Icon type='Ionicons' name='md-checkmark'style={styles.textDefault, styles.iconDefault} />
+                            </Button>
+                        </View> :
+                        <View style={{paddingHorizontal: 40}}>
+                            <Text style={{color: MAIN_TEXT,paddingVertical: 25, width: '80%'}} numberOfLines={3} onPress={() => this.setState({ editable_desc: true })}>{description_card}</Text>
+                        </View>
+                    }
                     <View style={styles.addDetail}>
                         {/* <View style={styles.fieldDetail}>
                             <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.textDefault}/>
@@ -197,12 +321,20 @@ export default class Detail extends Component {
                             <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.textDefault}/>
                             <Text style={styles.textDefault}>Add Image</Text>
                         </View> */}
-                        <ListItem icon>
+                        <ListItem icon onPress={() => console.log('press')}>
                             <Left>
                                 <Icon name='md-calendar' style={styles.textDefault, styles.iconDefault}/>
                             </Left>
                             <Body style={{borderBottomWidth: 0}}>
                                 <Text style={styles.textDefault}>Add Date</Text>
+                            </Body>
+                        </ListItem>
+                        <ListItem icon onPress={() => this.setState({ showCheck: true })}>
+                            <Left>
+                                <Icon name='md-checkbox-outline' style={styles.textDefault, styles.iconDefault}/>
+                            </Left>
+                            <Body style={{borderBottomWidth: 0}}>
+                                <Text style={styles.textDefault}>Add Task</Text>
                             </Body>
                         </ListItem>
                         <ListItem icon>
@@ -214,7 +346,82 @@ export default class Detail extends Component {
                             </Body>
                         </ListItem>
                     </View>
-                </View>
+                    { //-------------------------CHECKLIST SECTION---------------------------------
+                        showCheck ?
+                        <View>
+                            <View style={styles.detailTitle}>
+                                <ListItem icon>
+                                    <Left style={{padding: 0}}>
+                                        <Icon style={{ color: MAIN_TEXT, fontSize: 24 }} name='md-checkbox-outline'/>
+                                    </Left>
+                                    <Body style={{borderBottomWidth: 0}}>
+                                        <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Checklist</Text>
+                                    </Body>
+                                </ListItem>
+                            </View>
+                            <View style={styles.addDetail}>
+                                {
+                                    checklist ?
+                                    checklist.map(item => {
+                                        return(
+                                            <ListItem icon key={item.id}>
+                                                <CheckBox checked={item.done == 0 ? false : true} onPress={() => this.handleChecked(item)}/>
+                                                <Body style={{borderBottomWidth: 0}}>
+                                                    <Text style={item.done == 0 ? {marginLeft: 20} : {marginLeft: 20, textDecorationLine: 'line-through', color:'#a5a5a5'}}>{item.value}</Text>
+                                                </Body>
+                                            </ListItem>
+                                        );
+                                    }) : null
+                                }
+                                <ListItem icon>
+                                    <Left>
+                                        <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
+                                    </Left>
+                                    <Body style={{borderBottomWidth: 0}}>
+                                        <TextInput
+                                            placeholder='What you do next?'
+                                            onChangeText={text => this.setState({ checkbox_value: text })}
+                                            value={checkbox_value}
+                                            //onSubmmitEditing={this.handleAddChecklist}
+                                            autoFocus
+                                        />
+                                    </Body>
+                                    {
+                                        checkbox_value.length > 0 ?
+                                        <Right style={{borderBottomWidth: 0}}>
+                                            <Button transparent onPress={this.handleAddChecklist}>
+                                                <Icon type='Ionicons' name='md-checkmark' style={styles.textDefault, styles.iconDefault}/>
+                                            </Button>
+                                        </Right> : null
+                                    }
+                                </ListItem>
+                            </View>
+                        </View> : null
+                    }
+                    { //-------------------------ATTACHMENTS SECTION---------------------------------
+                        image ? 
+                        <View>
+                            <View style={styles.detailTitle}>
+                                <ListItem icon>
+                                    <Left style={{padding: 0}}>
+                                        <Icon style={{ color: MAIN_TEXT, fontSize: 24 }} type='FontAwesome' name='paperclip'/>
+                                    </Left>
+                                    <Body style={{borderBottomWidth: 0}}>
+                                        <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Attachments</Text>
+                                    </Body>
+                                </ListItem>
+                            </View>
+                            <View style={styles.addDetail}>
+                                <ListItem  style={{borderBottomWidth: 0}}>
+                                    <Lightbox style={{flex:1}} underlayColor='transparent'>
+                                        {/* <Thumbnail square large source={{uri: image}} /> */}
+                                        <Image style={styles.image} source={{uri: image}} resizeMode={'contain'} />
+                                    </Lightbox>
+                                </ListItem>
+                            </View>
+                        </View> : null
+                    }
+                </ScrollView>
                 {/* {
                     this.state.loading ? <Spinner style={styles.spinner}/> :
                     <FlatList
@@ -245,19 +452,12 @@ const styles = StyleSheet.create({
         flex:1
     },
     header: {
-        backgroundColor: 'transparent'
+        backgroundColor: MAIN_COLOR,
     },
     head: {
-        backgroundColor: MAIN_COLOR,
-        // position: 'absolute',
-        // top:0,
-        // left:0,
-        // right:0,
-        height: HEADER_HEIGHT,
-        //elevation: 1000,
-        //zIndex: 50,
-        //transform: [{ translateY: headerY }]
-        //marginBottom: 20
+        paddingHorizontal: 40, 
+        backgroundColor: MAIN_COLOR, 
+        paddingBottom: 15
     },
     list: {
         paddingTop: 40,
@@ -323,9 +523,12 @@ const styles = StyleSheet.create({
         color: '#1e1e1e'
     },
     description: {
-        fontSize: 12,
-        fontWeight: '300',
-        color: '#5e5e5e'
+        //paddingVertical: 20,
+        //paddingHorizontal:40,
+        flexDirection: 'row',
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'space-between'
     },
     spinner: {
         color: MAIN_COLOR,
@@ -354,31 +557,12 @@ const styles = StyleSheet.create({
         color: '#a5a5a5',
         fontSize: 16
     },
-    searchBar: {
-        //backgroundColor: 'red',
-        //zIndex: 500,
-        //marginTop: HEADER_HEIGHT - 25,
-        //marginHorizontal: 40,
-        position: 'absolute',
-        top: HEADER_HEIGHT-25,
-        left:40,
-        right:40,
-        //justifyContent: 'center',
-        //paddingHorizontal: 10,
-        //borderRadius: 10
-    },
-    search: {
-        backgroundColor: 'white',
-        borderRadius: 10,
-        elevation: 10
-    },
-    detailContainer: {
-        flex:1,
-    },
-    detail: {
+    detailTitle: {
         //alignItems: 'center',
-        paddingVertical: 20,
-        paddingHorizontal:40,
+        paddingVertical: 5,
+        paddingHorizontal:0,
+        borderBottomWidth: 3,
+        borderColor: MAIN_COLOR
         //flex:1
     },
     addDetail: {
@@ -388,8 +572,9 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderColor: '#dddd',
         paddingVertical: 10,
-        paddingHorizontal:25,
-        backgroundColor: '#f3f3f3'
+        paddingHorizontal:20,
+        backgroundColor: '#f3f3f3',
+        flex:1
     },
     textDefault: {
         color: '#a5a5a5'
@@ -397,6 +582,20 @@ const styles = StyleSheet.create({
     iconDefault: {
         color: '#a5a5a5',
         fontSize: 24
+    },
+    image: {
+        //backgroundColor: 'red',
+        //resizeMode: 'contain',
+        flex:1,
+        height: 200,
+        //position: 'absolute',
+        //top:0
+    },
+    checkedList: {
+
+    },
+    uncheckedList: {
+        
     }
 
 })

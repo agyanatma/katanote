@@ -20,6 +20,10 @@ export default class AddBoard extends Component {
         this.searchHolder = [];
     }
 
+    componentDidMount(){
+        this.fetchData();
+    }
+
     fetchData() {
         db.transaction((tx) => {
             tx.executeSql(
@@ -52,19 +56,15 @@ export default class AddBoard extends Component {
         this.setState({ data: searchData, cancel: true });
     }
 
-    componentDidMount(){
-        this.fetchData();
-    }
-
     renderItem = ({ item, index }) => {
         return (
             <View style={styles.item}>
                 <Left style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Icon name="document" style={styles.icon} />
+                    <Icon name="md-list" style={styles.icon} />
                     <Text style={styles.board}>{item.name}</Text>
                 </Left>
                 <Right>
-                    <Button transparent>
+                    <Button transparent onPress={() => this.props.navigation.navigate('Cards', {board_id : item.id, name_board: item.name})}>
                         <Icon name="arrow-forward" style={styles.icon} />
                     </Button>
                 </Right>
@@ -77,7 +77,7 @@ export default class AddBoard extends Component {
             <Container style={styles.container}>
                 <Header androidStatusBarColor='#34a869' searchBar noShadow style={styles.header}>
                     <Item style={styles.search}>
-                        <Icon name="search" style={styles.icon}/>
+                        <Icon name="md-search" style={styles.icon}/>
                         <Input onChangeText={(text) => this.handleSearch(text)} placeholder="Search" placeholderTextColor="#dddd"/>
                         <TouchableWithoutFeedback onPress={() => this.props.navigation.goBack()}>
                             <Text style={styles.cancel}>Cancel</Text>
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
         // borderColor: '#dddd'
     },
     icon: {
-        color: '#a6a6a6',
+        color: '#a5a5a5',
         fontSize: 21
     },
     spinner: {
@@ -137,7 +137,7 @@ const styles = StyleSheet.create({
         zIndex: 50,
     },
     cancel: {
-        color: '#a6a6a6',
+        color: '#a5a5a5',
         marginRight:20
     },
     board: {

@@ -20,7 +20,7 @@ export default class AddBoard extends Component {
     toastMessage = (message, type) => {
         Toast.show({
             text: message,
-            duration: 5000,
+            duration: 1000,
             type: type,
             buttonText: 'Close',
         });
@@ -42,11 +42,7 @@ export default class AddBoard extends Component {
                 console.log('Results', results.rowsAffected);
                 if(results.rowsAffected > 0){
                     this.toastMessage('New board was added!','success');
-                    const resetAction = StackActions.reset({
-                        index: 0,
-                        actions: [NavigationActions.navigate({ routeName: 'Home' })],
-                    });
-                    this.props.navigation.dispatch(resetAction);
+                    this.props.navigation.goBack();
                 }
                 else{
                     this.toastMessage('Adding new board failed!','danger');
@@ -55,8 +51,10 @@ export default class AddBoard extends Component {
                     }
                 }
             }
-            if(this._isMounted){
-                this.setState({ isError: true });
+            else{
+                if(this._isMounted){
+                    this.setState({ isError: true });
+                }
             }
         } catch (error) {
             this.toastMessage('Something wrong','danger')
