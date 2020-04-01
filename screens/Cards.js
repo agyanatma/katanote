@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
-import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableNativeFeedback, Keyboard } from 'react-native'
-import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast, Thumbnail } from 'native-base';
+import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableNativeFeedback, Keyboard, Alert } from 'react-native'
+import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast, Thumbnail, ActionSheet } from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 
@@ -15,6 +15,7 @@ export default class Items extends Component {
         super(props);
         this.state = {
             data: [],
+            searchHolder: [],
             name_card: '',
             search: '',
             loading: false,
@@ -22,18 +23,17 @@ export default class Items extends Component {
             isRefreshing: false,
             editable: false,
             name_board: '',
-            image: null
+            image: null,
         }
         const {params} = this.props.navigation.state;
-        this.board_id = params.board_id,
-        this.name_board = params.name_board,
-        this.searchHolder = [];
+        this.board_id = params.board_id;
+        this.name_board = params.name_board;
     }
 
     toastMessage = (message, type) => {
         Toast.show({
             text: message,
-            duration: 500,
+            duration: 1000,
             type: type,
             buttonText: 'Close',
         });
@@ -46,7 +46,7 @@ export default class Items extends Component {
         });
         this._isMounted = true;
         if(this._isMounted){
-            this.setState({ loading: true, name_board: this.name_board });
+            this.setState({ loading: true, name_board: this.name_board});
         }
     }
 
@@ -62,8 +62,7 @@ export default class Items extends Component {
             if(len > 0){
                 var data = results.rows.raw();
                 if(this._isMounted){
-                    this.setState({data: data});
-                    this.searchHolder = data;
+                    this.setState({data: data, searchHolder: data});
                 }
             }
             if(this._isMounted){
@@ -87,7 +86,7 @@ export default class Items extends Component {
                 if(this._isMounted){
                     this.setState({name_card:'',loading: false});
                 }
-                await this.fetchData();
+                this.fetchData();
             }
             else{
                 this.toastMessage('Failed adding new card!','danger');
@@ -108,10 +107,11 @@ export default class Items extends Component {
         this.props.navigation.goBack();
     }
 
-    handleSearch = () => {
-        const searchData = this.searchHolder.filter(item => {      
+    handleSearch = (text) => {
+        const {searchHolder} = this.state;
+        const searchData = searchHolder.filter(item => {      
             const itemData = `${item.name.toLowerCase()}`;
-            const textData = this.state.name_card.toLowerCase();
+            const textData = text.toLowerCase();
             return itemData.indexOf(textData) > -1;    
         });
         if(this._isMounted){
@@ -133,6 +133,59 @@ export default class Items extends Component {
             console.log(error);
             this.toastMessage('Something Wrong','danger');
         }
+    }
+
+    handleDeleteBoard = async () => {
+        try {
+            results = await DB.executeSql('DELETE FROM boards WHERE id=?', [this.board_id]);
+            console.log('Deleted board: ', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                this.props.navigation.navigate('Home');
+                this.toastMessage('Delete board success','success');
+            }
+        } catch (error) {
+            console.log(error);
+            this.toastMessage('Something Wrong','danger');
+        }
+        
+    }
+
+    handleDeleteConfirmation = () => {
+        Alert.alert(
+            'Delete Board',
+            `You sure want to delete ${this.name_board} ?`,
+            [
+                {text: 'CANCEL', style: 'cancel', onPress: () => console.log('Cancel delete board')},
+                {text: 'DELETE', style:'destructive', onPress:() => this.handleDeleteBoard()}
+            ]
+        )
+    }
+
+    handleOptions = () => {
+        const BUTTONS = ['Edit board','Delete board','Cancel'];
+
+        ActionSheet.show(
+            {
+                options: BUTTONS,
+                cancelButtonIndex: 2,
+                title: 'Select options'
+            },
+            buttonIndex => {
+                switch (buttonIndex) {
+                    case 0:
+                        ActionSheet.hide();
+                        this.props.navigation.navigate('AddBoard', {board_id: this.board_id});
+                        break;
+                    case 1:
+                        ActionSheet.hide();
+                        this.handleDeleteConfirmation();
+                        break;
+                
+                    default:
+                        break;
+                }
+            }
+        )
     }
 
     renderItem = ({ item, index }) => {
@@ -164,7 +217,7 @@ export default class Items extends Component {
                         </Left>
                         <Body/>
                         <Right>
-                            <Button transparent>
+                            <Button transparent onPress={this.handleOptions}>
                                 <Icon name='md-more' style={styles.iconHeader}/>
                             </Button>
                         </Right>
@@ -187,7 +240,7 @@ export default class Items extends Component {
                 <View style={styles.searchBar}>
                     <Item style={styles.search}>
                             <Icon name="md-search" style={[styles.icon, styles.searchIcon]}/>
-                            <Input onChangeText={(text) => this._isMounted ? this.setState({name_card: text}) : null } value={this.state.name_card} 
+                            <Input onChangeText={(text) => {this.setState({name_card: text}), this.handleSearch(text)}} value={this.state.name_card} 
                             placeholder="Search or Add" placeholderTextColor="#dddd"/>
                             {
                                 this.state.name_card ?

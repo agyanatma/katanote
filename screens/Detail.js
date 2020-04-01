@@ -5,9 +5,12 @@ import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 import ImagePicker from 'react-native-image-picker';
 import Lightbox from 'react-native-lightbox';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import moment from 'moment';
 
 
 const MAIN_COLOR = '#39b772';
+const SECONDARY_COLOR = '#34a869';
 const HEADER_HEIGHT = 130;
 const MAIN_TEXT = '#54595F';
 
@@ -17,13 +20,19 @@ export default class Detail extends Component {
         this.state = {
             editable_title: false,
             editable_desc: false,
+            editable_checkbox: false,
             name_card: '',
             description_card: '',
             image: null,
             checklist: [],
-            checkbox_value: '',
+            new_checklist: '',
+            edit_checklist: '',
             check_done: true,
-            showCheck: false
+            showCheck: false,
+            date: new Date(),
+            showDatePicker: false,
+            dateChanged : false,
+            expiredDate: false,
         }
         const {params} = this.props.navigation.state;
         this.card_id = params.card_id;
@@ -33,6 +42,7 @@ export default class Detail extends Component {
     }
 
     componentDidMount(){
+        this.getDateCard();
         this.getCardDescription();
         this.getChecklists();
         this.getImageCard();
@@ -73,28 +83,58 @@ export default class Detail extends Component {
         }
     }
 
-    handleCancelEdit = () => {
-        if(this._isMounted){
-            this.setState({ editable_title: false, name_card: this.name_card});
-        }
-    }
-
-    handleAddChecklist = async () => {
-        const {checkbox_value} = this.state;
+    handleDeleteCard = async () => {
         try {
-            if(checkbox_value){
-                results = await DB.executeSql('INSERT INTO checkbox (value, card_id) VALUES (?,?)', [checkbox_value, this.card_id]);
-                console.log('Results', results.rowsAffected);
-                if(results.rowsAffected > 0){
-                    if(this._isMounted){
-                        this.setState({ checkbox_value: '' })
-                    }
-                    this.getChecklists();
-                }
+            results = await DB.executeSql('DELETE FROM cards WHERE id=?', [this.card_id]);
+            console.log('Deleted card: ', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                this.props.navigation.navigate('Cards');
+                this.toastMessage('Delete card success','success');
             }
         } catch (error) {
             console.log(error);
         }
+        
+    }
+
+    handleDeleteConfirmation = () => {
+        Alert.alert(
+            'Delete Card',
+            `Are you sure want to delete ${this.name_card} ?`,
+            [
+                {text: 'CANCEL', style: 'cancel', onPress: () => console.log('Cancel action')},
+                {text: 'DELETE', style:'destructive', onPress:() => this.handleDeleteCard()}
+            ]
+        )
+    }
+
+    handleOptions = () => {
+        const BUTTONS = ['Edit card','Delete card','Cancel'];
+
+        ActionSheet.show(
+            {
+                options: BUTTONS,
+                cancelButtonIndex: 2,
+                title: 'Select options'
+            },
+            buttonIndex => {
+                switch (buttonIndex) {
+                    case 0:
+                        ActionSheet.hide();
+                        if(this._isMounted){
+                            this.setState({ editable_title: true });
+                        }
+                        break;
+                    case 1:
+                        ActionSheet.hide();
+                        this.handleDeleteConfirmation();
+                        break;
+                
+                    default:
+                        break;
+                }
+            }
+        )
     }
 
     getCardDescription = async () => {
@@ -129,6 +169,42 @@ export default class Detail extends Component {
         }
     }
 
+    handleAddChecklist = async () => {
+        const {new_checklist} = this.state;
+        try {
+            if(new_checklist){
+                results = await DB.executeSql('INSERT INTO checkbox (value, card_id) VALUES (?,?)', [new_checklist, this.card_id]);
+                console.log('Checkbox added: ', results.rowsAffected);
+                if(results.rowsAffected > 0){
+                    if(this._isMounted){
+                        this.setState({ new_checklist: '' });
+                    }
+                    this.getChecklists();
+                }
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    handleEditChecklist = async (item) => {
+        const {edit_checklist, editable_checkbox} = this.state;
+        try {
+            if(edit_checklist){
+                results = await DB.executeSql('UPDATE checkbox SET value=? WHERE id=?', [edit_checklist, item.id]);
+                console.log('Checkbox updated: ', results.rowsAffected);
+                if(results.rowsAffected > 0){
+                    if(this._isMounted){
+                        this.setState({ editable_checkbox: false });
+                    }
+                    this.getChecklists();
+                }
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
     getChecklists = async () => {
         try {
             results = await DB.executeSql('SELECT * FROM checkbox WHERE card_id=?', [this.card_id]);
@@ -152,32 +228,54 @@ export default class Detail extends Component {
         }
     }
 
-    // showChecklists = () => {
-    //     const {checklist, editable_title} = this.state;
-    //     checklist.map(item => {
-    //         return(
-    //             <ListItem>
-    //                 <CheckBox checked={item.done == 0 ? false : true} />
-    //                 <Body>
-    //                     <Text>{item.value}</Text>
-    //                 </Body>
-    //             </ListItem>
-    //         );
-    //     })
-    // }
-
     handleChecked = async (item) => {
         try {
             let done = item.done == 0 ? 1 : 0 
             results = await DB.executeSql('UPDATE checkbox SET done=? WHERE id=?', [done, item.id]);
-            console.log('Change checked :',results.rowsAffected);
+            console.log('Change checked: ',results.rowsAffected);
             if(results.rowsAffected > 0){
                 this.getChecklists();
             }
         } catch (error) {
             console.log(error);
         }
-    } 
+    }
+
+    handleDeleteCheckbox = async (item) => {
+        try {
+            results = await DB.executeSql('DELETE FROM checkbox WHERE id=? AND card_id=?', [item.id, this.card_id]);
+            console.log('Delete checkbox: ', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                this.getChecklists();
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+    
+    renderChecklists = (item) => {
+        const {editable_checkbox, edit_checklist} = this.state;
+        if(editable_checkbox){
+            return(
+                <View style={{flexDirection: 'row', justifyContent: 'space-between'}}>
+                    <TextInput key={item.id} style={{marginLeft: 20}}
+                        onChangeText={(text) => this.setState({edit_checklist: text})} 
+                        defaultValue={item.value}
+                        onBlur={() => this.setState({editable_checkbox: false})}
+                        onSubmitEditing={() => this.handleEditChecklist(item)}
+                        //autoFocus
+                    />
+                    <Button transparent onPress={() => this.handleDeleteCheckbox(item)}>
+                        <Icon name='md-trash' style={styles.textDefault, styles.iconDefault}/>
+                    </Button>
+                </View>
+            );
+        } else{
+            return(
+                <Text style={item.done == 0 ? {marginLeft: 20} : {marginLeft: 20, textDecorationLine: 'line-through', color:'#a5a5a5'}}>{edit_checklist ? edit_checklist : item.value}</Text>
+            );
+        }
+    }
 
     handleAddImage = () => {
         const {image} = this.state;
@@ -187,35 +285,35 @@ export default class Detail extends Component {
             mediaType: 'photo',
             maxWidth: 500,
             storageOptions: {
-                skipBackup: true,
-                path: 'Katanote',
+                skipBackup: true
             },
         }
 
         ImagePicker.showImagePicker(options, async (response) => {
-            //console.log(response);
             try {
-                switch (image) {
-                    case null:
-                        results = await DB.executeSql("INSERT INTO images (uri, card_id) VALUES (?,?)", [response.uri, this.card_id]);
-                        if(results.rowsAffected > 0){
-                            console.log('New image added: ',results.rowsAffected);
-                            if(this._isMounted){
-                                this.setState({ image: response.uri});
+                if(response){
+                    switch (image) {
+                        case null:
+                            results = await DB.executeSql("INSERT INTO images (uri, card_id) VALUES (?,?)", [response.uri, this.card_id]);
+                            if(results.rowsAffected > 0){
+                                console.log('New image added: ',results.rowsAffected);
+                                if(this._isMounted){
+                                    this.setState({ image: response.uri});
+                                }
                             }
-                        } 
-                        break;
-                    default:
-                        results = await DB.executeSql("UPDATE images SET uri=? WHERE card_id=?", [response.uri, this.card_id]);
-                        if(results.rowsAffected > 0){
-                            console.log('New image updated: ',results.rowsAffected);
-                            if(this._isMounted){
-                                this.setState({ image: response.uri});
-                            }
-                        } 
-                        break;
+                            break;
+                    
+                        default:
+                            results = await DB.executeSql("UPDATE images SET uri=? WHERE card_id=?", [response.uri, this.card_id]);
+                            if(results.rowsAffected > 0){
+                                console.log('New image updated: ',results.rowsAffected);
+                                if(this._isMounted){
+                                    this.setState({ image: response.uri});
+                                }
+                            } 
+                            break;
+                    }
                 }
-                
             } catch (error) {
                 console.log(error);
             }
@@ -237,104 +335,236 @@ export default class Detail extends Component {
         }
     }
 
+    handleAddDate = async (event, date) => {
+        const {dateChanged} = this.state;
+        let formatedDate = Date.parse(date);
+        try {
+            if(date === undefined){
+                this.setState({ showDatePicker: false });
+                this.getDateCard();
+            } else {
+                switch (dateChanged) {
+                    case false:
+                        results = await DB.executeSql('INSERT INTO date (value, card_id) VALUES (?,?)', [formatedDate, this.card_id]);
+                        if(results.rowsAffected > 0){
+                            console.log('Date added: ', results.rowsAffected);
+                            this.getDateCard();
+                            if (this._isMounted) {
+                                this.setState({ showDatePicker: false, dateChanged: true })
+                            }
+                        }
+                        break;
+                    case true:
+                        results = await DB.executeSql('UPDATE date SET value=? WHERE card_id=?', [formatedDate, this.card_id]);
+                        if(results.rowsAffected > 0){
+                            console.log('Date updated: ', results.rowsAffected);
+                            this.getDateCard();
+                            if (this._isMounted) {
+                                this.setState({ showDatePicker: false, dateChanged: true })
+                            }
+                        }
+                        break;
+                }
+            }
+            
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    handleDeleteDate = async () => {
+        const {} = this.state;
+        try {
+            results = await DB.executeSql('DELETE FROM date WHERE card_id=?', [this.card_id]);
+            console.log('Date deleted: ', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                if(this._isMounted){
+                    this.setState({ dateChanged: false });
+                }
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    getDateCard = async () => {
+        const {date, dateChanged, expiredDate} = this.state;
+        try {
+            results = await DB.executeSql('SELECT value FROM date WHERE card_id=?', [this.card_id]);
+            if(results.rows.length > 0){
+                let formatedDate = parseInt(results.rows.item(0).value);
+                let date = new Date(formatedDate);
+                if (this._isMounted) {
+                    this.setState({ date, dateChanged: true });
+                }
+                if( Date.parse(date) <= Date.parse(new Date) ){
+                    this.setState({ expiredDate: true });
+                }
+                else {
+                    this.setState({ expiredDate: false });
+                }
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    handleExpiredStyle(expiredDate) {
+        const {dateChanged} = this.state;
+        if(dateChanged){
+            switch (expiredDate) {
+                case true:
+                    return{
+                        color: 'red'
+                    }
+                    break;
+            
+                case false:
+                    return{
+                        color: MAIN_COLOR
+                    }
+                    break;
+            }
+        }
+        return{
+            color: '#a5a5a5'
+        }
+    }
+
+    handleHeader = () => {
+        const { editable_title, editable_desc } = this.state;
+        if(editable_title){
+            return(
+                <Header androidStatusBarColor='#34a869' style={styles.header}>
+                    <Left>
+                        <Button transparent onPress={() => this.setState({ editable_title: false, name_card: this.name_card})}>
+                            <Icon name='md-close' style={styles.iconHeader}/>
+                        </Button>
+                    </Left>
+                    <Body/>
+                    <Right>
+                        <Button transparent onPress={this.handleEdit}>
+                            <Icon type='Ionicons' name='md-checkmark' style={styles.iconHeader}/>
+                        </Button>
+                    </Right>
+                </Header>
+            );
+        }
+        if(editable_desc){
+            return(
+                <Header androidStatusBarColor='#34a869' style={styles.header}>
+                    <Left>
+                        <Button transparent onPress={() => {this.setState({ editable_desc: false }), this.getCardDescription()}}>
+                            <Icon name='md-close' style={styles.iconHeader}/>
+                        </Button>
+                    </Left>
+                    <Body/>
+                    <Right>
+                        <Button transparent onPress={this.handleUpdateDescription}>
+                            <Icon type='Ionicons' name='md-checkmark' style={styles.iconHeader}/>
+                        </Button>
+                    </Right>
+                </Header>
+            );
+        }
+        else{
+            return(
+                <Header androidStatusBarColor='#34a869' style={styles.header}>
+                    <Left>
+                        <Button transparent onPress={this.handleBack}>
+                            <Icon name='md-arrow-back' style={styles.iconHeader} />
+                        </Button>
+                    </Left>
+                    <Body/>
+                    <Right>
+                        <Button transparent onPress={this.handleAddImage}>
+                            <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.iconHeader}/>
+                        </Button>
+                        <Button transparent onPress={this.handleOptions}>
+                            <Icon name='md-more' style={styles.iconHeader}/>
+                        </Button>
+                    </Right>
+                </Header>
+            );
+        }
+    }
+
     render() {
-        const {editable_title, editable_desc, name_card, image, checklist, checkbox_value, showCheck, description_card} = this.state;
+        const {editable_title, editable_desc, name_card, image, checklist, new_checklist, showCheck, 
+            description_card, date, showDatePicker, dateChanged, expiredDate, editable_checkbox, edit_checklist} = this.state;
         return (
             <Container style={styles.container}>
-                <Header androidStatusBarColor='#34a869' style={styles.header}>
-                    {
-                        editable_title ?
-                        <Left>
-                            <Button transparent onPress={this.handleCancelEdit}>
-                                <Icon name='md-close' style={styles.iconHeader}/>
-                            </Button>
-                        </Left> :
-                        <Left>
-                            <Button transparent onPress={this.handleBack}>
-                                <Icon name='md-arrow-back' style={styles.iconHeader} />
-                            </Button>
-                        </Left>
-                    }
-                    <Body/>
-                    {
-                        editable_title ?
-                        <Right>
-                            <Button transparent onPress={this.handleEdit}>
-                                <Icon type='Ionicons' name='md-checkmark' style={styles.iconHeader}/>
-                            </Button>
-                        </Right> :
-                        <Right>
-                            <Button transparent onPress={this.handleAddImage}>
-                                <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.iconHeader}/>
-                            </Button>
-                            <Button transparent>
-                                <Icon name='md-more' style={styles.iconHeader}/>
-                            </Button>
-                        </Right>
-
-                    }
-                </Header>
-                <ScrollView style={{flex: 1}}>
+                { this.handleHeader() }
+                <ScrollView overScrollMode='never' style={{flex: 1}}>
                     <View style={styles.head}>
-                        {
+                        {//----------------------------------------TITLE SECTION----------------------------------------
                             editable_title ?
                             <TextInput style={styles.titleEdit} 
                                 onChangeText={(text) => this.setState({name_card: text})} 
                                 value={name_card}
                                 onBlur={() => this.setState({editable_title: false})}
                                 onSubmitEditing={this.handleEdit}
-                                autoFocus
+                                autoFocus={editable_title}
                             />
                             : <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title} onPress={() => this.setState({editable_title: true})}>{name_card}</Text>
 
                         }
                         <Text style={styles.subtitle}>{`Item from ${this.name_board}`}</Text>
                     </View>
-                    {
-                        editable_desc ?
-                        <View style={styles.description}>
-                            <Button transparent onPress={() => this.setState({ editable_desc: false })}>
-                                <Icon type='Ionicons' name='md-close'style={styles.textDefault, styles.iconDefault} />
-                            </Button>
+                    <View style={{paddingHorizontal: 40, paddingVertical: 20}}>
+                        {//----------------------------------------DESCRIPTION SECTION----------------------------------------
+                            editable_desc ?
                             <TextInput placeholder='Edit description...' 
-                                style={{color: MAIN_TEXT, width: '70%'}} 
-                                multiline={true} 
-                                numberOfLines={3} 
+                                style={{color: MAIN_TEXT, padding:0, margin:0}} 
+                                multiline={true}
                                 value={description_card} 
                                 onChangeText={(text) => this.setState({ description_card : text })}
-                                autoFocus 
+                                autoFocus={editable_desc}
+                                onBlur={this.handleUpdateDescription}
                             />
-                            <Button transparent onPress={this.handleUpdateDescription}>
-                                <Icon type='Ionicons' name='md-checkmark'style={styles.textDefault, styles.iconDefault} />
-                            </Button>
-                        </View> :
-                        <View style={{paddingHorizontal: 40}}>
-                            <Text style={{color: MAIN_TEXT,paddingVertical: 25, width: '80%'}} numberOfLines={3} onPress={() => this.setState({ editable_desc: true })}>{description_card}</Text>
-                        </View>
-                    }
+
+                            :
+                            <Text style={!description_card ? {color: '#a5a5a5'} : {color: MAIN_TEXT}} onPress={() => this.setState({ editable_desc: true })}>
+                                {description_card ? description_card : 'Edit description...'}
+                            </Text>
+                        }
+                    </View>
                     <View style={styles.addDetail}>
-                        {/* <View style={styles.fieldDetail}>
-                            <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.textDefault}/>
-                            <Text style={styles.textDefault}>Add Image</Text>
-                        </View>
-                        <View style={styles.fieldDetail}>
-                            <Icon type='MaterialCommunityIcons' name='image-plus' style={styles.textDefault}/>
-                            <Text style={styles.textDefault}>Add Image</Text>
-                        </View> */}
-                        <ListItem icon onPress={() => console.log('press')}>
+                        {/* -------------------------------DATE SECTION--------------------------------------- */}
+                        <ListItem icon onPress={() => this.setState({ showDatePicker: true })}>
                             <Left>
-                                <Icon name='md-calendar' style={styles.textDefault, styles.iconDefault}/>
+                                <Icon name='md-calendar' style={[styles.iconDefault, this.handleExpiredStyle(expiredDate)]}/>
                             </Left>
                             <Body style={{borderBottomWidth: 0}}>
-                                <Text style={styles.textDefault}>Add Date</Text>
+                                {
+                                    showDatePicker ?
+                                    <DateTimePicker
+                                        value={date}
+                                        mode='date'
+                                        display='calendar'
+                                        minimumDate={new Date()}
+                                        onChange={ this.handleAddDate }
+                                    /> :
+                                    <Text style={this.handleExpiredStyle(expiredDate)}>{dateChanged ? `Due Date: ${moment(date).format('dddd, DD MMMM YYYY')}` : 'Due Date'}</Text>
+                                }
                             </Body>
+                            <Right style={{borderBottomWidth: 0}}>
+                                { dateChanged && (
+                                    <Icon name='md-close' style={styles.iconDefault} onPress={this.handleDeleteDate}/>
+                                )}
+                            </Right>
                         </ListItem>
-                        <ListItem icon onPress={() => this.setState({ showCheck: true })}>
+                        <ListItem icon onPress={() => this.setState({ showCheck: !showCheck })}>
                             <Left>
                                 <Icon name='md-checkbox-outline' style={styles.textDefault, styles.iconDefault}/>
                             </Left>
                             <Body style={{borderBottomWidth: 0}}>
-                                <Text style={styles.textDefault}>Add Task</Text>
+                                {
+                                    checklist.length > 0 ?
+                                    <Text style={styles.textDefault}>{!showCheck ? 'Show Task' : 'Hide Task'}</Text> :
+                                    <Text style={styles.textDefault}>Add Task</Text>
+                                }
+                                
                             </Body>
                         </ListItem>
                         <ListItem icon>
@@ -346,7 +576,7 @@ export default class Detail extends Component {
                             </Body>
                         </ListItem>
                     </View>
-                    { //-------------------------CHECKLIST SECTION---------------------------------
+                    { //------------------------------------CHECKLIST SECTION---------------------------------
                         showCheck ?
                         <View>
                             <View style={styles.detailTitle}>
@@ -357,6 +587,11 @@ export default class Detail extends Component {
                                     <Body style={{borderBottomWidth: 0}}>
                                         <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Checklist</Text>
                                     </Body>
+                                    <Right style={{borderBottomWidth: 0}}>
+                                        <Button transparent onPress={() => this.setState({ editable_checkbox: !editable_checkbox })}>
+                                            <Text style={styles.textDefault}>{editable_checkbox ? 'Cancel' : 'Edit'}</Text>
+                                        </Button>
+                                    </Right>
                                 </ListItem>
                             </View>
                             <View style={styles.addDetail}>
@@ -364,30 +599,36 @@ export default class Detail extends Component {
                                     checklist ?
                                     checklist.map(item => {
                                         return(
-                                            <ListItem icon key={item.id}>
+                                            <ListItem icon key={item.id} onPress={() => this.setState({ editable_checkbox: true })}>
                                                 <CheckBox checked={item.done == 0 ? false : true} onPress={() => this.handleChecked(item)}/>
                                                 <Body style={{borderBottomWidth: 0}}>
-                                                    <Text style={item.done == 0 ? {marginLeft: 20} : {marginLeft: 20, textDecorationLine: 'line-through', color:'#a5a5a5'}}>{item.value}</Text>
+                                                    { this.renderChecklists(item) }
                                                 </Body>
                                             </ListItem>
                                         );
                                     }) : null
                                 }
                                 <ListItem icon>
-                                    <Left>
-                                        <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
-                                    </Left>
+                                    {
+                                        new_checklist.length > 0 ?
+                                        <Left>
+                                            <Icon name='md-close' style={styles.textDefault, styles.iconDefault} onPress={() => {this.setState({ new_checklist: '' }), Keyboard.dismiss()}}/>
+                                        </Left> :
+                                        <Left>
+                                            <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
+                                        </Left>
+
+                                    }
                                     <Body style={{borderBottomWidth: 0}}>
                                         <TextInput
-                                            placeholder='What you do next?'
-                                            onChangeText={text => this.setState({ checkbox_value: text })}
-                                            value={checkbox_value}
-                                            //onSubmmitEditing={this.handleAddChecklist}
-                                            autoFocus
+                                            placeholder='Add new task...'
+                                            onChangeText={text => this.setState({ new_checklist: text })}
+                                            value={new_checklist}
+                                            //autoFocus={showCheck}
                                         />
                                     </Body>
                                     {
-                                        checkbox_value.length > 0 ?
+                                        new_checklist.length > 0 ?
                                         <Right style={{borderBottomWidth: 0}}>
                                             <Button transparent onPress={this.handleAddChecklist}>
                                                 <Icon type='Ionicons' name='md-checkmark' style={styles.textDefault, styles.iconDefault}/>
@@ -578,6 +819,9 @@ const styles = StyleSheet.create({
     },
     textDefault: {
         color: '#a5a5a5'
+    },
+    textSuccess: {
+        color: MAIN_COLOR
     },
     iconDefault: {
         color: '#a5a5a5',

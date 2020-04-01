@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import { StyleSheet, View } from 'react-native'
+import { StyleSheet, View, ScrollView } from 'react-native'
 import { Container, Header, Left, Right, Body, Button, Icon, Content, Title, Item, Input, Form, Textarea, Text, Toast } from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
@@ -14,19 +14,23 @@ export default class AddBoard extends Component {
             desc_board: '',
             loading: false,
             isError: false,
+            editable: false
         }
+        const {params} = this.props.navigation.state;
+        this.board_id = params.board_id;
     }
 
     toastMessage = (message, type) => {
         Toast.show({
             text: message,
-            duration: 1000,
+            duration: 2000,
             type: type,
             buttonText: 'Close',
         });
     }
 
     componentDidMount(){
+        this.getIdBoard();
         this._isMounted = true;
     }
 
@@ -34,12 +38,32 @@ export default class AddBoard extends Component {
         this._isMounted = false;
     }
 
-    addBoard = async () => {
-        const {name_board, desc_board} = this.state;
+    getIdBoard = async () => {
         try {
-            if(name_board){
+            console.log(this.board_id);
+            if(this.board_id){
+                results = await DB.executeSql('SELECT * FROM boards WHERE id=?', [this.board_id]);
+                if(results.rows.length > 0){
+                    if(this._isMounted){
+                        this.setState({ 
+                            name_board: results.rows.item(0).name,
+                            desc_board: results.rows.item(0).description,
+                            editable: true
+                         })
+                    }
+                }
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    addBoard = async () => {
+        const {name_board, desc_board, editable} = this.state;
+        try {
+            if(name_board && editable == false){
                 results = await DB.executeSql('INSERT INTO boards (name, description) VALUES (?,?)', [name_board, desc_board]);
-                console.log('Results', results.rowsAffected);
+                console.log('Board added: ', results.rowsAffected);
                 if(results.rowsAffected > 0){
                     this.toastMessage('New board was added!','success');
                     this.props.navigation.goBack();
@@ -49,6 +73,14 @@ export default class AddBoard extends Component {
                     if(this._isMounted){
                         this.setState({ loading: false })
                     }
+                }
+            }
+            else if(name_board && editable == true){
+                results = await DB.executeSql('UPDATE boards SET name=?, description=? WHERE id=?', [name_board, desc_board, this.board_id]);
+                console.log('Board updated: ', results.rowsAffected);
+                if(results.rowsAffected > 0){
+                    this.toastMessage('Board successfully updated!','success');
+                    this.props.navigation.goBack();
                 }
             }
             else{
@@ -75,27 +107,27 @@ export default class AddBoard extends Component {
                         <Body/>
                         <Right/>
                     </Header>
-                    <Text style={styles.title}>Create Board</Text>
+                    <Text style={styles.title}>{this.state.editable ? 'Update Board' : 'Create Board'}</Text>
                 </View>
-                <View style={styles.content} >
+                <ScrollView style={styles.content} >
                     <Form>
                         <Item regular style={styles.form} >
-                            <Input placeholderTextColor='grey' placeholder='Title' onChangeText={(text) => this._isMounted ? this.setState({name_board: text}) : null} value={this.state.name_board} />
+                            <Input placeholderTextColor='grey' placeholder='Title *' onChangeText={(text) => this.setState({name_board: text})} value={this.state.name_board} />
                         </Item>
                         {
                             this.state.isError ? 
-                            <Text style={styles.textError}>Please fill the name field!</Text>
+                            <Text style={styles.textError}>Please fill the title field!</Text>
                             : <Text style={styles.textError}></Text>
                         }
                         <Item regular style={styles.form} >
-                            <Input placeholderTextColor='grey' placeholder='Description' onChangeText={(text) => this._isMounted ? this.setState({desc_board:text}) : null} value={this.state.desc_board} />
+                            <Input placeholderTextColor='grey' placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} />
                         </Item>
                         {/* <Textarea regular style={styles.form} placeholderTextColor='grey' bordered rowSpan={5} placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} /> */}
                         <Button block style={styles.button} onPress={this.addBoard} >
-                            <Text style={styles.textButton} >Create</Text>
+                            <Text style={styles.textButton} >{this.state.editable ? 'Update' : 'Create'}</Text>
                         </Button>
                     </Form>
-                </View>
+                </ScrollView>
             </Container>
         )
     }
@@ -108,22 +140,22 @@ const styles = StyleSheet.create({
     },
     head: {
         backgroundColor: '#39b772',
-        flex:1,
-        position: 'absolute',
-        top:0,
-        left:0,
-        right:0,
-        height: 200
+        //flex:1,
+        // position: 'absolute',
+        // top:0,
+        // left:0,
+        // right:0,
+        height: 130
     },
     header: {
         backgroundColor: 'transparent'
     },
     content: {
-        marginTop: 120,
+        //marginTop: 120,
         margin: 20,
-        paddingVertical: 50,
+        //paddingVertical: 50,
         paddingHorizontal: 25,
-        elevation: 5,
+        //elevation: 5,
         borderRadius: 10,
         shadowColor: '#fefefe',
         shadowOpacity: 0.1,

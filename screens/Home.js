@@ -118,7 +118,7 @@ export default class Home extends Component {
                             <Button transparent onPress={() => this.props.navigation.navigate('Search')}>
                                 <Icon name='md-search' style={styles.icon}/>
                             </Button>
-                            <Button transparent onPress={() => this.props.navigation.navigate('AddBoard')}>
+                            <Button transparent onPress={() => this.props.navigation.navigate('AddBoard', {board_id: ''})}>
                                 <Icon name='md-add' style={styles.icon}/>
                             </Button>
                         </Right>
