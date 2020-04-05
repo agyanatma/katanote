@@ -7,7 +7,10 @@ import ImagePicker from 'react-native-image-picker';
 import Lightbox from 'react-native-lightbox';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import moment from 'moment';
-
+import {TextInputMask} from 'react-native-masked-text';
+import NumberDetails from '../components/NumberDetails';
+import TextDetails from '../components/TextDetails';
+import Intl from 'react-native-intl';
 
 const MAIN_COLOR = '#39b772';
 const SECONDARY_COLOR = '#34a869';
@@ -21,18 +24,29 @@ export default class Detail extends Component {
             editable_title: false,
             editable_desc: false,
             editable_checkbox: false,
+            editable_field: false,
+            delete_detail: false,
             name_card: '',
             description_card: '',
             image: null,
             checklist: [],
             new_checklist: '',
             edit_checklist: '',
+            detail_input: '200',
+            field_input: '',
+            details: [],
+            editedDetails: [],
             check_done: true,
-            showCheck: false,
             date: new Date(),
             showDatePicker: false,
             dateChanged : false,
             expiredDate: false,
+            showCheck: false,
+            showAttachment: false,
+            showDetail: false,
+            toggleChecklist: true,
+            toggleAttachment: true,
+            toggleDetail: true,
         }
         const {params} = this.props.navigation.state;
         this.card_id = params.card_id;
@@ -42,10 +56,11 @@ export default class Detail extends Component {
     }
 
     componentDidMount(){
-        this.getDateCard();
-        this.getCardDescription();
-        this.getChecklists();
-        this.getImageCard();
+        this.getCardDescription()
+        this.getDateCard()
+        this.getAllDetails()
+        this.getChecklists()
+        this.getImageCard()
         this._isMounted = true;
         if(this._isMounted){
             this.setState({name_card: this.name_card});
@@ -75,7 +90,6 @@ export default class Detail extends Component {
             if(name_card){
                 results = await DB.executeSql("UPDATE cards SET name = ? where id = ?", [name_card, this.card_id]);
                 console.log('Results', results.rowsAffected);
-                Keyboard.dismiss();
             }
         } catch (error) {
             console.log(error);
@@ -162,7 +176,7 @@ export default class Detail extends Component {
                 if(this._isMounted){
                     this.setState({ editable_desc: false });
                 }
-                this.getCardDescription();
+                await this.getCardDescription();
             }
         } catch (error) {
             console.log(error);
@@ -179,7 +193,7 @@ export default class Detail extends Component {
                     if(this._isMounted){
                         this.setState({ new_checklist: '' });
                     }
-                    this.getChecklists();
+                    await this.getChecklists();
                 }
             }
         } catch (error) {
@@ -261,7 +275,7 @@ export default class Detail extends Component {
                     <TextInput key={item.id} style={{marginLeft: 20}}
                         onChangeText={(text) => this.setState({edit_checklist: text})} 
                         defaultValue={item.value}
-                        onBlur={() => this.setState({editable_checkbox: false})}
+                        onBlur={() => this.setState({editable_checkbox: false, edit_checklist: ''})}
                         onSubmitEditing={() => this.handleEditChecklist(item)}
                         //autoFocus
                     />
@@ -275,6 +289,320 @@ export default class Detail extends Component {
                 <Text style={item.done == 0 ? {marginLeft: 20} : {marginLeft: 20, textDecorationLine: 'line-through', color:'#a5a5a5'}}>{edit_checklist ? edit_checklist : item.value}</Text>
             );
         }
+    }
+
+    handleChangeInput = (text, id) => {
+        this._isMounted && (
+            this.setState(prevState => ({
+                ...prevState, 
+                details: prevState.details.map(detail => ({
+                    ...detail,
+                    value: detail.id === id ? text : detail.value
+                }))
+            }))
+        )
+    }
+
+    handleChangeField = (text, id) => {
+        this._isMounted && (
+            this.setState(prevState => ({
+                ...prevState, 
+                details: prevState.details.map(detail => ({
+                    ...detail,
+                    name: detail.id === id ? text : detail.name
+                }))
+            }))
+        )
+    }
+
+    renderAllDetails = (item) => {
+        const {delete_detail} = this.state;
+        switch (item.format) {
+            case 1: // text format
+                return(
+                    <View key={item.id.toString()}>
+                        <TextDetails
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={text => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
+                            defaultField={item.name}
+                            placeholder={'Empty'}
+                            onChangeInput={text => this.handleChangeInput(text, item.id)}
+                            valueInput={item.value}
+                            deleteDetail={delete_detail}
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+                        />
+                    </View>
+                )
+                break;
+        
+            case 2: // number format
+                return(
+                    <View key={item.id.toString()}>
+                        <NumberDetails
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={text => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
+                            defaultField={item.name}
+                            typeMask={'money'}
+                            precision={0}
+                            separator= {null}
+                            delimiter={','}
+                            unit={null}
+                            placeholder={'0'}
+                            onChangeInput={(rawText) => this.handleChangeInput(rawText, item.id)}
+                            valueInput={item.value}
+                            deleteDetail={delete_detail}
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+        
+                        />
+                    </View>
+                )
+                break;
+        
+            case 3: // dollar format
+                return(
+                    <View key={item.id.toString()}>
+                        <NumberDetails
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={text => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
+                            defaultField={item.name}
+                            typeMask={'money'}
+                            precision={2}
+                            separator= {'.'}
+                            delimiter={','}
+                            unit={'$'}
+                            placeholder={'$0.00'}
+                            onChangeInput={(maskedText, rawText) => this.handleChangeInput(rawText, item.id)}
+                            valueInput={item.value == 0 ? '' : item.value}
+                            deleteDetail={delete_detail}
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+    
+                        />
+                    </View>
+                )
+                break;
+        
+            case 4: // rupiah format
+                return(
+                    <View key={item.id.toString()}>
+                        <NumberDetails
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={text => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
+                            defaultField={item.name}
+                            typeMask={'money'}
+                            precision={0}
+                            separator= {'.'}
+                            delimiter={','}
+                            unit={'Rp'}
+                            placeholder={'Rp0'}
+                            onChangeInput={(maskedText, rawText) => this.handleChangeInput(rawText, item.id)}
+                            valueInput={item.value == 0 ? '' : item.value}
+                            deleteDetail={delete_detail}
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+    
+                        />
+                    </View>
+                )
+                break;
+        
+            case 5: // yen format
+                return(
+                    <View key={item.id.toString()}>
+                        <NumberDetails
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={text => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
+                            defaultField={item.name}
+                            typeMask={'money'}
+                            precision={0}
+                            separator= {'.'}
+                            delimiter={','}
+                            unit={'¥'}
+                            placeholder={'¥0'}
+                            onChangeInput={(maskedText, rawText) => this.handleChangeInput(rawText, item.id)}
+                            valueInput={item.value == 0 ? '' : item.value}
+                            deleteDetail={delete_detail}
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+                        />
+                    </View>
+                )
+                break;
+        
+            default:
+                
+                break;
+        }
+
+    }
+
+    handleAddDetails = async () => {
+        try {
+            results = await DB.executeSql('INSERT INTO details (name, format, card_id, value) VALUES (?,?,?,?)', [this.state.field_input, 1, this.card_id, '']);
+            console.log('Detail added: ', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                this.getAllDetails();
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    handleDeleteDetail = async (item) => {
+        const {details} = this.state;
+        try {
+            results = await DB.executeSql('DELETE FROM details WHERE id=?', [item.id]);
+            console.log('Detail deleted: ', results.rowsAffected);
+            if(results.rowsAffected > 0){
+                this.getAllDetails();
+                details.length == 1 && ( this._isMounted && (this.setState({ showDetail: false })) )
+            }
+        } catch (error) {
+            console.log();
+        }
+    }
+
+    getAllDetails = async () => {
+        try {
+            results = await DB.executeSql('SELECT * FROM details WHERE card_id=?', [this.card_id]);
+            if(results.rows.length > 0){
+                let details = results.rows.raw();
+                this._isMounted && ( this.setState({ details: details, editedDetails: details, showDetail: true, field_input: '', detail_input: '' }) );
+                //console.log('details :',this.state.details);
+                
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    handleEditDetailFormat = async (format, index) => {
+        try {
+            results = await DB.executeSql('UPDATE details SET format=? WHERE id=?', [format, index]);
+            console.log('Format updated: ', results.rowsAffected);
+            this._isMounted && (
+                this.setState(prevState => ({
+                    ...prevState, 
+                    details: prevState.details.map(detail => ({
+                        ...detail,
+                        format: detail.id === index ? format : detail.format
+                    }))
+                }))
+            )
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    handleEditDetailField = async (text, index) => {
+        try {
+            results = await DB.executeSql('UPDATE details SET name=? WHERE id=?', [text, index]);
+            console.log('Field updated: ', results.rowsAffected);
+            this._isMounted && (
+                this.setState(prevState => ({
+                    ...prevState, 
+                    details: prevState.details.map(detail => ({
+                        ...detail,
+                        name: detail.id === index ? text : detail.name
+                    }))
+                }))
+            )
+        } catch (error) {
+            console.log(error);
+        }
+    }
+
+    handleEditDetailValue = async (text, index) => {
+        try {
+            results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [text, index]);
+            console.log('Value updated: ', results.rowsAffected);
+            this._isMounted && (
+                this.setState(prevState => ({
+                    ...prevState, 
+                    details: prevState.details.map(detail => ({
+                        ...detail,
+                        value: detail.id === index ? text : detail.value
+                    }))
+                }))
+            )
+        } catch (error) {
+            console.log(error);
+        }
+    }
+    
+    handleChooseFormat = (index) => {
+        const BUTTONS = ['Text','Number','US Dollar','ID Rupiah','JP Yen', 'Cancel'];
+
+        ActionSheet.show(
+            {
+                options: BUTTONS,
+                cancelButtonIndex: 5,
+                title: 'Select format detail'
+            },
+            buttonIndex => {
+                let format;
+                switch (buttonIndex) {
+                    case 0:
+                        format = 1;
+                        ActionSheet.hide();
+                        if(this._isMounted){
+                            this.setState({ showDetail: true, detail_input: '' });
+                        }
+                        this.handleEditDetailFormat(format, index)
+                        this.handleChangeInput('', index)
+                        break;
+                    case 1:
+                        format = 2
+                        ActionSheet.hide();
+                        if(this._isMounted){
+                            this.setState({ showDetail: true, detail_input: '' });
+                        }
+                        this.handleEditDetailFormat(format, index)
+                        this.handleChangeInput('', index)
+                        break;
+                        
+                    case 2:
+                        format = 3
+                        ActionSheet.hide();
+                        if(this._isMounted){
+                            this.setState({ showDetail: true, detail_input: '' });
+                        }
+                        this.handleEditDetailFormat(format, index)
+                        this.handleChangeInput('', index)
+                        break;
+                
+                    case 3:
+                        format = 4
+                        ActionSheet.hide();
+                        if(this._isMounted){
+                            this.setState({ showDetail: true, detail_input: '' });
+                        }
+                        this.handleEditDetailFormat(format, index)
+                        this.handleChangeInput('', index)
+                        break;
+                
+                    case 4:
+                        format = 5
+                        ActionSheet.hide();
+                        if(this._isMounted){
+                            this.setState({ showDetail: true, detail_input: '' });
+                        }
+                        this.handleEditDetailFormat(format, index)
+                        this.handleChangeInput('', index)
+                        break;
+                
+                    default:
+                        break;
+                }
+            }
+        )
     }
 
     handleAddImage = () => {
@@ -298,13 +626,13 @@ export default class Detail extends Component {
                             if(results.rowsAffected > 0){
                                 console.log('New image added: ',results.rowsAffected);
                                 if(this._isMounted){
-                                    this.setState({ image: response.uri});
+                                    this.setState({ image: response.uri, showAttachment: true});
                                 }
                             }
                             break;
                     
                         default:
-                            results = await DB.executeSql("UPDATE images SET uri=? WHERE card_id=?", [response.uri, this.card_id]);
+                            results = await DB.executeSql(" details images SET uri=? WHERE card_id=?", [response.uri, this.card_id]);
                             if(results.rowsAffected > 0){
                                 console.log('New image updated: ',results.rowsAffected);
                                 if(this._isMounted){
@@ -327,7 +655,7 @@ export default class Detail extends Component {
             let len = results.rows.length;
             if(len > 0){
                 if(this._isMounted){
-                    this.setState({ image: results.rows.item(0).uri });
+                    this.setState({ image: results.rows.item(0).uri, showAttachment: true });
                 }
             }
         } catch (error) {
@@ -336,19 +664,20 @@ export default class Detail extends Component {
     }
 
     handleAddDate = async (event, date) => {
+        this.setState({ showDatePicker: false });
         const {dateChanged} = this.state;
         let formatedDate = Date.parse(date);
         try {
             if(date === undefined){
                 this.setState({ showDatePicker: false });
-                this.getDateCard();
+                await this.getDateCard();
             } else {
                 switch (dateChanged) {
                     case false:
                         results = await DB.executeSql('INSERT INTO date (value, card_id) VALUES (?,?)', [formatedDate, this.card_id]);
                         if(results.rowsAffected > 0){
                             console.log('Date added: ', results.rowsAffected);
-                            this.getDateCard();
+                            await this.getDateCard();
                             if (this._isMounted) {
                                 this.setState({ showDatePicker: false, dateChanged: true })
                             }
@@ -358,7 +687,7 @@ export default class Detail extends Component {
                         results = await DB.executeSql('UPDATE date SET value=? WHERE card_id=?', [formatedDate, this.card_id]);
                         if(results.rowsAffected > 0){
                             console.log('Date updated: ', results.rowsAffected);
-                            this.getDateCard();
+                            await this.getDateCard();
                             if (this._isMounted) {
                                 this.setState({ showDatePicker: false, dateChanged: true })
                             }
@@ -435,7 +764,7 @@ export default class Detail extends Component {
         const { editable_title, editable_desc } = this.state;
         if(editable_title){
             return(
-                <Header androidStatusBarColor='#34a869' style={styles.header}>
+                <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
                     <Left>
                         <Button transparent onPress={() => this.setState({ editable_title: false, name_card: this.name_card})}>
                             <Icon name='md-close' style={styles.iconHeader}/>
@@ -452,7 +781,7 @@ export default class Detail extends Component {
         }
         if(editable_desc){
             return(
-                <Header androidStatusBarColor='#34a869' style={styles.header}>
+                <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
                     <Left>
                         <Button transparent onPress={() => {this.setState({ editable_desc: false }), this.getCardDescription()}}>
                             <Icon name='md-close' style={styles.iconHeader}/>
@@ -469,7 +798,7 @@ export default class Detail extends Component {
         }
         else{
             return(
-                <Header androidStatusBarColor='#34a869' style={styles.header}>
+                <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
                     <Left>
                         <Button transparent onPress={this.handleBack}>
                             <Icon name='md-arrow-back' style={styles.iconHeader} />
@@ -490,8 +819,8 @@ export default class Detail extends Component {
     }
 
     render() {
-        const {editable_title, editable_desc, name_card, image, checklist, new_checklist, showCheck, 
-            description_card, date, showDatePicker, dateChanged, expiredDate, editable_checkbox, edit_checklist} = this.state;
+        const {editable_title, editable_desc, name_card, image, checklist, new_checklist, showCheck, showAttachment, showDetail, toggleDetail,
+            details, delete_detail, format, description_card, date, showDatePicker, dateChanged, expiredDate, editable_checkbox, toggleChecklist, toggleAttachment } = this.state;
         return (
             <Container style={styles.container}>
                 { this.handleHeader() }
@@ -504,14 +833,14 @@ export default class Detail extends Component {
                                 value={name_card}
                                 onBlur={() => this.setState({editable_title: false})}
                                 onSubmitEditing={this.handleEdit}
-                                autoFocus={editable_title}
+                                autoFocus
                             />
-                            : <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title} onPress={() => this.setState({editable_title: true})}>{name_card}</Text>
+                            : <Text numberOfLines={1} ellipsizeMode="tail" style={styles.title} onPress={() => {this._isMounted && (this.setState({editable_title: true}))}}>{name_card}</Text>
 
                         }
                         <Text style={styles.subtitle}>{`Item from ${this.name_board}`}</Text>
                     </View>
-                    <View style={{paddingHorizontal: 40, paddingVertical: 20}}>
+                    <View style={{paddingHorizontal: 25, paddingVertical: 20}}>
                         {//----------------------------------------DESCRIPTION SECTION----------------------------------------
                             editable_desc ?
                             <TextInput placeholder='Edit description...' 
@@ -521,6 +850,7 @@ export default class Detail extends Component {
                                 onChangeText={(text) => this.setState({ description_card : text })}
                                 autoFocus={editable_desc}
                                 onBlur={this.handleUpdateDescription}
+                                autoFocus
                             />
 
                             :
@@ -554,113 +884,181 @@ export default class Detail extends Component {
                                 )}
                             </Right>
                         </ListItem>
-                        <ListItem icon onPress={() => this.setState({ showCheck: !showCheck })}>
-                            <Left>
-                                <Icon name='md-checkbox-outline' style={styles.textDefault, styles.iconDefault}/>
-                            </Left>
-                            <Body style={{borderBottomWidth: 0}}>
-                                {
-                                    checklist.length > 0 ?
-                                    <Text style={styles.textDefault}>{!showCheck ? 'Show Task' : 'Hide Task'}</Text> :
+                        {
+                            !showCheck && (
+                            <ListItem icon onPress={() => this.setState({ showCheck: true })}>
+                                <Left>
+                                    <Icon name='md-checkbox-outline' style={styles.textDefault, styles.iconDefault}/>
+                                </Left>
+                                <Body style={{borderBottomWidth: 0}}>
                                     <Text style={styles.textDefault}>Add Task</Text>
-                                }
-                                
-                            </Body>
-                        </ListItem>
-                        <ListItem icon>
-                            <Left>
-                                <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
-                            </Left>
-                            <Body style={{borderBottomWidth: 0}}>
-                                <Text style={styles.textDefault}>Add Detail</Text>
-                            </Body>
-                        </ListItem>
+                                </Body>
+                            </ListItem>
+                            )
+                        }
+                        {
+                            !showDetail && (
+                            <ListItem icon onPress={() => this.setState({ showDetail: true })}>
+                                <Left>
+                                    <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
+                                </Left>
+                                <Body style={{borderBottomWidth: 0}}>
+                                    <Text style={styles.textDefault}>Add Detail</Text>
+                                </Body>
+                            </ListItem>
+                            ) 
+                        }
                     </View>
-                    { //------------------------------------CHECKLIST SECTION---------------------------------
-                        showCheck ?
-                        <View>
-                            <View style={styles.detailTitle}>
-                                <ListItem icon>
-                                    <Left style={{padding: 0}}>
-                                        <Icon style={{ color: MAIN_TEXT, fontSize: 24 }} name='md-checkbox-outline'/>
-                                    </Left>
-                                    <Body style={{borderBottomWidth: 0}}>
-                                        <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Checklist</Text>
-                                    </Body>
-                                    <Right style={{borderBottomWidth: 0}}>
-                                        <Button transparent onPress={() => this.setState({ editable_checkbox: !editable_checkbox })}>
-                                            <Text style={styles.textDefault}>{editable_checkbox ? 'Cancel' : 'Edit'}</Text>
-                                        </Button>
-                                    </Right>
-                                </ListItem>
-                            </View>
-                            <View style={styles.addDetail}>
-                                {
-                                    checklist ?
-                                    checklist.map(item => {
-                                        return(
-                                            <ListItem icon key={item.id} onPress={() => this.setState({ editable_checkbox: true })}>
-                                                <CheckBox checked={item.done == 0 ? false : true} onPress={() => this.handleChecked(item)}/>
+                    {/* ----------------------------------------------------------DETAIL SECTION----------------------------------------------------- */}
+                    {
+                        
+                        showDetail && (
+                            <View>
+                                <View style={styles.detailTitle}>
+                                    <TouchableWithoutFeedback onPress={() => {this._isMounted && (this.setState({ toggleDetail: !toggleDetail }))}}>
+                                        <ListItem icon>
+                                            <Left style={{padding: 0}}>
+                                                <Icon style={{ color: MAIN_TEXT, fontSize: 24 }} name='md-list'/>
+                                            </Left>
+                                            <Body style={{borderBottomWidth: 0}}>
+                                                <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Details</Text>
+                                            </Body>
+                                            <Right style={{borderBottomWidth: 0}}>
+                                                <Button transparent style={{paddingLeft: 20}} onPress={() => this.setState({ delete_detail: !delete_detail })}>
+                                                    <Text style={styles.textDefault}>{delete_detail ? 'Cancel' : 'Edit'}</Text>
+                                                </Button>
+                                            </Right>
+                                        </ListItem>
+                                    </TouchableWithoutFeedback>
+                                </View>
+                                { toggleDetail && (
+                                    <View style={styles.addDetail}>
+                                        {
+                                            details && (
+                                                details.map((item) => {
+                                                    return(
+                                                        this.renderAllDetails(item)
+                                                    );
+                                                })
+                                            )
+                                        }
+                                        <TouchableWithoutFeedback onPress={() => this.handleAddDetails()}>
+                                            <ListItem icon>
+                                                <Left>
+                                                    <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
+                                                </Left>
                                                 <Body style={{borderBottomWidth: 0}}>
-                                                    { this.renderChecklists(item) }
+                                                    <Text style={styles.textDefault}>Add new detail...</Text>
                                                 </Body>
                                             </ListItem>
-                                        );
-                                    }) : null
-                                }
-                                <ListItem icon>
-                                    {
-                                        new_checklist.length > 0 ?
-                                        <Left>
-                                            <Icon name='md-close' style={styles.textDefault, styles.iconDefault} onPress={() => {this.setState({ new_checklist: '' }), Keyboard.dismiss()}}/>
-                                        </Left> :
-                                        <Left>
-                                            <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
-                                        </Left>
-
-                                    }
-                                    <Body style={{borderBottomWidth: 0}}>
-                                        <TextInput
-                                            placeholder='Add new task...'
-                                            onChangeText={text => this.setState({ new_checklist: text })}
-                                            value={new_checklist}
-                                            //autoFocus={showCheck}
-                                        />
-                                    </Body>
-                                    {
-                                        new_checklist.length > 0 ?
-                                        <Right style={{borderBottomWidth: 0}}>
-                                            <Button transparent onPress={this.handleAddChecklist}>
-                                                <Icon type='Ionicons' name='md-checkmark' style={styles.textDefault, styles.iconDefault}/>
-                                            </Button>
-                                        </Right> : null
-                                    }
-                                </ListItem>
-                            </View>
-                        </View> : null
+                                        </TouchableWithoutFeedback>
+                                    </View>
+                                )}
+                            </View> )
                     }
-                    { //-------------------------ATTACHMENTS SECTION---------------------------------
-                        image ? 
+
+                    {/* ---------------------------------------------------------CHECKLIST SECTION-------------------------------------------------- */}
+                    { 
+                        showCheck && (
                         <View>
                             <View style={styles.detailTitle}>
-                                <ListItem icon>
-                                    <Left style={{padding: 0}}>
-                                        <Icon style={{ color: MAIN_TEXT, fontSize: 24 }} type='FontAwesome' name='paperclip'/>
-                                    </Left>
-                                    <Body style={{borderBottomWidth: 0}}>
-                                        <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Attachments</Text>
-                                    </Body>
-                                </ListItem>
+                                <TouchableWithoutFeedback onPress={() => {this._isMounted && (this.setState({ toggleChecklist: !toggleChecklist }))}}>
+                                    <ListItem icon>
+                                        <Left style={{padding: 0}}>
+                                            <Icon style={{ color: MAIN_TEXT, fontSize: 24 }} name='md-checkbox-outline'/>
+                                        </Left>
+                                        <Body style={{borderBottomWidth: 0}}>
+                                            <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Checklist</Text>
+                                        </Body>
+                                        {
+                                            toggleChecklist && (
+                                                <Right style={{borderBottomWidth: 0}}>
+                                                    <Button transparent onPress={() => this.setState({ editable_checkbox: !editable_checkbox })}>
+                                                        <Text style={styles.textDefault}>{editable_checkbox ? 'Cancel' : 'Edit'}</Text>
+                                                    </Button>
+                                                </Right>
+                                            )
+                                        }
+                                    </ListItem>
+                                </TouchableWithoutFeedback>
                             </View>
-                            <View style={styles.addDetail}>
-                                <ListItem  style={{borderBottomWidth: 0}}>
-                                    <Lightbox style={{flex:1}} underlayColor='transparent'>
-                                        {/* <Thumbnail square large source={{uri: image}} /> */}
-                                        <Image style={styles.image} source={{uri: image}} resizeMode={'contain'} />
-                                    </Lightbox>
-                                </ListItem>
+                            { toggleChecklist && (
+                                <View style={styles.addDetail}>
+                                    {
+                                        checklist && (
+                                        checklist.map(item => {
+                                            return(
+                                                <ListItem icon key={item.id}>
+                                                    <CheckBox checked={item.done == 0 ? false : true} onPress={() => this.handleChecked(item)}/>
+                                                    <Body style={{borderBottomWidth: 0}}>
+                                                        { this.renderChecklists(item) }
+                                                    </Body>
+                                                </ListItem>
+                                            );
+                                        }) )
+                                    }
+                                    <ListItem icon>
+                                        {
+                                            new_checklist.length > 0 ?
+                                            <Left>
+                                                <Icon name='md-close' style={styles.textDefault, styles.iconDefault} onPress={() => {this.setState({ new_checklist: '' }), Keyboard.dismiss()}}/>
+                                            </Left> :
+                                            <Left>
+                                                <Icon name='md-add' style={styles.textDefault, styles.iconDefault}/>
+                                            </Left>
+
+                                        }
+                                        <Body style={{borderBottomWidth: 0}}>
+                                            <TextInput
+                                                placeholder='Add new task...'
+                                                onChangeText={text => this.setState({ new_checklist: text })}
+                                                value={new_checklist}
+                                                //autoFocus={showCheck}
+                                            />
+                                        </Body>
+                                        {
+                                            new_checklist.length > 0 ?
+                                            <Right style={{borderBottomWidth: 0}}>
+                                                <Button transparent onPress={this.handleAddChecklist}>
+                                                    <Icon type='Ionicons' name='md-checkmark' style={styles.textDefault, styles.iconDefault}/>
+                                                </Button>
+                                            </Right> : null
+                                        }
+                                    </ListItem>
+                                </View>
+                            )}
+                        </View> )
+                    }
+
+                    {/* ------------------------------------------------------ATTACHMENTS SECTION--------------------------------------------------- */}
+                    { 
+                        showAttachment && (
+                        <View>
+                            <View style={styles.detailTitle}>
+                                <TouchableWithoutFeedback onPress={() => {this._isMounted && (this.setState({ toggleAttachment: !toggleAttachment }))}}>
+                                    <ListItem icon>
+                                        <Left style={{padding: 0}}>
+                                            <Icon style={{ color: MAIN_TEXT, fontSize: 24 }} type='FontAwesome' name='paperclip'/>
+                                        </Left>
+                                        <Body style={{borderBottomWidth: 0}}>
+                                            <Text style={{fontSize: 20, fontWeight: '700', color: MAIN_TEXT}} >Attachments</Text>
+                                        </Body>
+                                    </ListItem>                                    
+                                </TouchableWithoutFeedback>
                             </View>
-                        </View> : null
+                            {
+                                toggleAttachment && (
+                                <View style={styles.addDetail}>
+                                    <ListItem  style={{borderBottomWidth: 0}}>
+                                        <Lightbox style={{flex:1}} underlayColor='transparent'>
+                                            {/* <Thumbnail square large source={{uri: image}} /> */}
+                                            <Image style={styles.image} source={{uri: image}} resizeMode={'contain'} />
+                                        </Lightbox>
+                                    </ListItem>
+                                </View>
+                                )
+                            }
+                        </View> )
                     }
                 </ScrollView>
                 {/* {
@@ -696,7 +1094,7 @@ const styles = StyleSheet.create({
         backgroundColor: MAIN_COLOR,
     },
     head: {
-        paddingHorizontal: 40, 
+        paddingHorizontal: 25, 
         backgroundColor: MAIN_COLOR, 
         paddingBottom: 15
     },
@@ -813,7 +1211,7 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderColor: '#dddd',
         paddingVertical: 10,
-        paddingHorizontal:20,
+        paddingHorizontal:10,
         backgroundColor: '#f3f3f3',
         flex:1
     },

@@ -396,7 +396,8 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: HEADER_HEIGHT-25,
         left:40,
-        right:40
+        right:40,
+        zIndex: 99
         //justifyContent: 'center',
         //paddingHorizontal: 10,
         //borderRadius: 10
