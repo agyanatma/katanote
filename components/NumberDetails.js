@@ -1,15 +1,15 @@
-import React, { Component } from 'react'
-import { Text, TextInput } from 'react-native'
-import { Container, Header, Icon, Left, Right, Body, Button, ListItem } from 'native-base'
-import {TextInputMask} from 'react-native-masked-text';
+import React, { Component } from 'react';
+import { Text, TextInput } from 'react-native';
+import { Container, Header, Icon, Left, Right, Body, Button, ListItem } from 'native-base';
+import { TextInputMask } from 'react-native-masked-text';
 
-const NumberDetails = (props) => {
+const NumberDetails = props => {
     return (
         <ListItem icon>
             <Left>
                 <TextInput
-                    style={{width: 100}}
-                    placeholder='Property'
+                    style={{ width: 100 }}
+                    placeholder="Property"
                     onChangeText={props.onChangeField}
                     onSubmitEditing={props.onSubmitLeft}
                     value={props.defaultField}
@@ -18,7 +18,7 @@ const NumberDetails = (props) => {
                 />
                 <Text> : </Text>
             </Left>
-            <Body style={{borderBottomWidth: 0}}>
+            <Body style={{ borderBottomWidth: 0 }}>
                 <TextInputMask
                     type={props.typeMask}
                     options={{
@@ -26,10 +26,9 @@ const NumberDetails = (props) => {
                         separator: props.separator,
                         delimiter: props.delimiter,
                         unit: props.unit
-
                     }}
                     placeholder={props.placeholder}
-                    onChangeText={(props.onChangeInput)}
+                    onChangeText={props.onChangeInput}
                     value={props.valueInput}
                     ellipsizeMode="tail"
                     numberOfLines={1}
@@ -49,21 +48,19 @@ const NumberDetails = (props) => {
                     autoFocus={props.autoFocus}
                 /> */}
             </Body>
-            <Right style={{borderBottomWidth: 0}}>
-                {
-                    props.deleteDetail ?
+            <Right style={{ borderBottomWidth: 0 }}>
+                {props.deleteDetail ? (
                     <Button transparent onPress={props.onPressDelete}>
-                        <Icon name='trash' type='Ionicons' style={{color: '#a5a5a5', fontSize: 18}}/>
-                    </Button> :
-                    <Button transparent onPress={props.onPressRight}>
-                        <Icon name='md-arrow-dropdown' type='Ionicons' style={{color: '#a5a5a5'}}/>
+                        <Icon name="trash" type="Ionicons" style={{ color: '#a5a5a5', fontSize: 18 }} />
                     </Button>
-                }
+                ) : (
+                    <Button transparent onPress={props.onPressRight}>
+                        <Icon name="md-arrow-dropdown" type="Ionicons" style={{ color: '#a5a5a5' }} />
+                    </Button>
+                )}
             </Right>
         </ListItem>
-    )
-}
+    );
+};
 
 export default NumberDetails;
-
-

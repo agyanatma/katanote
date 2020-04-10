@@ -1,7 +1,7 @@
-import React, { Component } from 'react'
-import { Text, StyleSheet, View, Dimensions, FlatList, TouchableNativeFeedback } from 'react-native'
-import { Container, Header, Icon, Left, Right, Body, Button, Spinner } from 'native-base'
-import Animated from 'react-native-reanimated'
+import React, { Component } from 'react';
+import { Text, StyleSheet, View, Dimensions, FlatList, TouchableNativeFeedback } from 'react-native';
+import { Container, Header, Icon, Left, Right, Body, Button, Spinner } from 'native-base';
+import Animated from 'react-native-reanimated';
 import DB from '../database';
 
 const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
@@ -9,7 +9,7 @@ const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 const formatData = (data, numColumns) => {
     const numberOfFullRows = Math.floor(data.length / numColumns);
 
-    let numberOfElementsLastRow = data.length - (numberOfFullRows * numColumns);
+    let numberOfElementsLastRow = data.length - numberOfFullRows * numColumns;
     while (numberOfElementsLastRow !== numColumns && numberOfElementsLastRow !== 0) {
         data.push({ key: `blank-${numberOfElementsLastRow}`, empty: true });
         numberOfElementsLastRow++;
@@ -28,75 +28,108 @@ const diffClampScrollY = Animated.diffClamp(scrollY, 0, HEADER_HEIGHT);
 const headerY = Animated.interpolate(diffClampScrollY, {
     inputRange: [0, HEADER_HEIGHT],
     outputRange: [0, -HEADER_HEIGHT]
-})
+});
 
 export default class Home extends Component {
-
     _isMounted = false;
-    constructor(props){
+    constructor(props) {
         super(props);
         this.state = {
             data: [],
             fetch: false,
-            loading: false,
-            showToast: false
-        }
-    };
+            loading: true,
+            showToast: false,
+            userName: '',
+            userDesc: ''
+        };
+    }
 
     toastMessage = (message, type) => {
         Toast.show({
             text: message,
             duration: 5000,
             type: type,
-            buttonText: 'Close',
+            buttonText: 'Close'
         });
-    }
+    };
 
-    componentDidMount(){
+    componentDidMount() {
+        this.getDataUser();
         this.fetchData();
-        this.update = this.props.navigation.addListener('willFocus', async () => {
+        this.updateTitle = this.props.navigation.addListener('willFocus', async () => {
+            this.getDataUser();
             this.fetchData();
         });
-        this.setState({loading: true});
+        // this.updateBoard = this.props.navigation.addListener('willFocus', async () => {
+        // });
         this._isMounted = true;
     }
 
-    componentWillUnmount(){
+    componentWillUnmount() {
         this._isMounted = false;
-        this.update.remove();
+        // this.updateBoard.remove();
+        this.updateTitle.remove();
     }
+
+    getDataUser = async () => {
+        try {
+            results = await DB.executeSql('SELECT * FROM user', []);
+            //console.log(results.rows.raw())
+            if (results.rows.length > 0) {
+                this._isMounted &&
+                    this.setState({
+                        userName: results.rows.item(0).username,
+                        userDesc: results.rows.item(0).description
+                    });
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
 
     fetchData = async () => {
         try {
-            results = await DB.executeSql("SELECT * FROM boards ORDER BY id DESC", []);
+            results = await DB.executeSql('SELECT * FROM boards ORDER BY id DESC', []);
             let len = results.rows.length;
-            if(len > 0){
+            if (len >= 0) {
                 var data = results.rows.raw();
-                if(this._isMounted){
+                if (this._isMounted) {
                     this.setState({
                         data: data
                     });
                 }
             }
-            if(this._isMounted){
-                this.setState({loading: false})
+            if (this._isMounted) {
+                this.setState({ loading: false });
             }
         } catch (error) {
             console.log(error);
             this.toastMessage(error, 'danger');
         }
-    }
+    };
+
+    handleToggleDrawer = () => {
+        this.props.navigation.toggleDrawer();
+    };
+
+    handleToSearch = () => {
+        this.props.navigation.navigate('Search');
+    };
+
+    handleToAddBoard = () => {
+        this.props.navigation.navigate('AddBoard', { board_id: '' });
+    };
 
     renderItem = ({ item, index }) => {
         if (item.empty === true) {
             return <View style={[styles.item, styles.itemInvisible]} />;
         }
         return (
-            <View style={styles.item} >
-                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Cards', {board_id : item.id, name_board: item.name})}>
+            <View style={styles.item}>
+                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Cards', { board_id: item.id, name_board: item.name })}>
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name}</Text>
-                        <Text style={styles.description}>{item.description ? item.description : ""}</Text>
+                        <Text style={styles.description}>{item.description ? item.description : ''}</Text>
                     </View>
                 </TouchableNativeFeedback>
             </View>
@@ -107,33 +140,34 @@ export default class Home extends Component {
         return (
             <Container style={styles.container}>
                 <Animated.View style={styles.head}>
-                    <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
+                    <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
                         <Left>
-                            <Button transparent onPress={() => this.props.navigation.toggleDrawer()}>
-                                <Icon name='md-menu' style={styles.icon} />
+                            <Button transparent onPress={this.handleToggleDrawer}>
+                                <Icon name="md-menu" style={styles.icon} />
                             </Button>
                         </Left>
-                        <Body/>
+                        <Body />
                         <Right>
-                            <Button transparent onPress={() => this.props.navigation.navigate('Search')}>
-                                <Icon name='md-search' style={styles.icon}/>
+                            <Button transparent onPress={this.handleToggleDrawer}>
+                                <Icon name="md-search" style={styles.icon} />
                             </Button>
-                            <Button transparent onPress={() => this.props.navigation.navigate('AddBoard', {board_id: ''})}>
-                                <Icon name='md-add' style={styles.icon}/>
+                            <Button transparent onPress={this.handleToAddBoard}>
+                                <Icon name="md-add" style={styles.icon} />
                             </Button>
                         </Right>
                     </Header>
-                    <Text style={styles.title}>KataNote</Text>
-                    <Text style={styles.subtitle}>your private catalogs and notes</Text>
+                    <Text style={styles.title}>{this.state.userName}</Text>
+                    <Text style={styles.subtitle}>{this.state.userDesc}</Text>
                 </Animated.View>
-                {
-                    this.state.loading ? <Spinner style={styles.spinner}/> :
+                {this.state.loading ? (
+                    <Spinner style={styles.spinner} />
+                ) : (
                     <AnimatedFlatList
                         bounces={false}
                         scrollEventThrottle={16}
                         onScroll={Animated.event([
                             {
-                                nativeEvent:{contentOffset: {y: scrollY}}
+                                nativeEvent: { contentOffset: { y: scrollY } }
                             }
                         ])}
                         data={formatData(this.state.data, numColumns)}
@@ -150,16 +184,16 @@ export default class Home extends Component {
                         keyExtractor={item => item.id}
                         showsVerticalScrollIndicator={false}
                     />
-                }
+                )}
             </Container>
-        )
+        );
     }
 }
 
 const styles = StyleSheet.create({
     container: {
         backgroundColor: '#fafafa',
-        flex:1
+        flex: 1
     },
     header: {
         backgroundColor: 'transparent'
@@ -168,9 +202,9 @@ const styles = StyleSheet.create({
         backgroundColor: MAIN_COLOR,
         //paddingBottom: 50,
         position: 'absolute',
-        top:0,
-        left:0,
-        right:0,
+        top: 0,
+        left: 0,
+        right: 0,
         height: HEADER_HEIGHT,
         elevation: 1000,
         zIndex: 50,
@@ -185,7 +219,7 @@ const styles = StyleSheet.create({
     titlePage: {
         //paddingBottom: 20
         //backgroundColor: '#39b772',
-    }, 
+    },
     title: {
         fontSize: 27,
         fontWeight: 'bold',
@@ -207,7 +241,7 @@ const styles = StyleSheet.create({
         margin: 10,
         //padding: 15,
         borderRadius: 5,
-        flex:1,
+        flex: 1,
         elevation: 3,
         height: Dimensions.get('window').width / numColumns
     },
@@ -236,18 +270,18 @@ const styles = StyleSheet.create({
         //paddingTop: HEADER_HEIGHT+50,
         position: 'absolute',
         top: Dimensions.get('window').height / 2,
-        left:0,
-        right:0,
-        zIndex: 50,
+        left: 0,
+        right: 0,
+        zIndex: 50
     },
     blankSpace: {
         height: Dimensions.get('window').height / 2,
         justifyContent: 'center',
-        alignContent: 'center',
+        alignContent: 'center'
     },
     blank: {
         textAlign: 'center',
         color: '#a5a5a5',
         fontSize: 16
-    },
-})
+    }
+});

@@ -10,28 +10,29 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@react-native-community/datetimepicker": "^2.3.0",
-    "@react-native-community/masked-view": "^0.1.5",
+    "@react-native-community/datetimepicker": "^2.3.2",
+    "@react-native-community/masked-view": "^0.1.7",
     "moment": "^2.24.0",
-    "native-base": "^2.13.8",
+    "native-base": "^2.13.12",
     "react": "16.9.0",
     "react-native": "0.61.5",
-    "react-native-gesture-handler": "^1.5.3",
+    "react-native-gesture-handler": "^1.6.1",
     "react-native-image-picker": "^2.3.1",
-    "react-native-intl": "^1.0.0",
     "react-native-lightbox": "^0.8.1",
     "react-native-masked-text": "^1.13.0",
-    "react-native-reanimated": "^1.7.0",
-    "react-native-safe-area-context": "^0.6.2",
-    "react-native-screens": "^2.2.0",
+    "react-native-reanimated": "^1.8.0",
+    "react-native-safe-area-context": "^0.6.4",
+    "react-native-screens": "^2.4.0",
+    "react-native-share": "^3.2.0",
+    "react-native-splash-screen": "^3.2.0",
     "react-native-sqlite-storage": "^4.1.0",
-    "react-navigation": "^4.0.10",
-    "react-navigation-drawer": "^2.3.3",
-    "react-navigation-stack": "^2.0.12"
+    "react-navigation": "^4.3.7",
+    "react-navigation-drawer": "^2.4.11",
+    "react-navigation-stack": "^2.3.11"
   },
   "devDependencies": {
-    "@babel/core": "^7.7.7",
-    "@babel/runtime": "^7.7.7",
+    "@babel/core": "^7.9.0",
+    "@babel/runtime": "^7.9.2",
     "@react-native-community/eslint-config": "^0.0.5",
     "babel-jest": "^24.9.0",
     "eslint": "^6.8.0",
@@ -41,5 +42,8 @@
   },
   "jest": {
     "preset": "react-native"
+  },
+  "optionalDependencies": {
+    "fsevents": "^2.1.2"
   }
 }

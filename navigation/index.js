@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
-import {StyleSheet, Image} from 'react-native';
+import { StyleSheet, Image, View, Linking } from 'react-native';
 
 import { createAppContainer, createSwitchNavigator } from 'react-navigation';
 import { createStackNavigator } from 'react-navigation-stack';
 import { createDrawerNavigator, DrawerItems } from 'react-navigation-drawer';
-import { Container, Header, Content, Body, Text, Thumbnail, List, ListItem, Left, Right, Icon } from 'native-base';
+import { Container, Header, Content, Body, Text, Thumbnail, List, ListItem, Left, Right, Icon, Footer } from 'native-base';
+import DB from '../database';
 
 import Home from '../screens/Home';
 import AddBoard from '../screens/AddBoard';
@@ -18,94 +19,103 @@ import Help from '../screens/Help';
 
 const MAIN_COLOR = '#39b772';
 
-const CustomDrawerContentComponent = (props) => (
-    
+const CustomDrawerContentComponent = props => (
     <Container>
-        <Header androidStatusBarColor='#34a869' noShadow style={styles.drawerHeader}>
+        <Header androidStatusBarColor="#34a869" noShadow style={styles.drawerHeader}>
             <Body>
-                <Thumbnail source={require('../assets/user.jpg')} style={styles.userImage} />
-                <Text style={styles.userName}>Nore Inovasi</Text>
-                <Text style={styles.description}>Jasa Pembuatan Website</Text>
+                {/* <Thumbnail source={require('../assets/user.jpg')} style={styles.userImage} /> */}
+                <Text style={styles.userName}>KataNote</Text>
+                <Text style={styles.description}>your private catalogs and notes</Text>
             </Body>
         </Header>
-            <Content>
-                <DrawerItems {...props}/>
-            </Content>
+        <Content>
+            <DrawerItems {...props} />
+        </Content>
+        <Footer style={{ justifyContent: 'flex-start', backgroundColor: 'transparent' }}>
+            <View style={{ margin: 10, alignSelf: 'center', marginLeft: 20 }}>
+                <Text>
+                    <Text style={{ fontSize: 12, color: '#a5a5a5' }}>Powered by </Text>
+                    <Text
+                        style={{ fontSize: 12, color: '#707070' }}
+                        onPress={() => {
+                            Linking.openURL('https://nore.web.id/');
+                        }}
+                    >
+                        Nore
+                    </Text>
+                </Text>
+            </View>
+        </Footer>
     </Container>
-
 );
 
-const StackNavigator = createStackNavigator({
-    Home,
-    AddBoard,
-    Search,
-    Cards,
-    Detail
-},
-{
-    headerMode: 'none'
-});
+const StackNavigator = createStackNavigator(
+    {
+        Home,
+        AddBoard,
+        Search,
+        Cards,
+        Detail
+    },
+    {
+        headerMode: 'none'
+    }
+);
 
-const DrawerNavigator = createDrawerNavigator({
-    Home: {
-        screen: StackNavigator,
-        navigationOptions: {
-            drawerIcon: ({tintColor}) => (
-                <Icon name='md-home' style={{ fontSize: 24, color: tintColor}}/>
-            )
+const DrawerNavigator = createDrawerNavigator(
+    {
+        Home: {
+            screen: StackNavigator,
+            navigationOptions: {
+                drawerIcon: ({ tintColor }) => <Icon name="md-home" style={{ fontSize: 24, color: tintColor }} />
+            }
+        },
+        Settings: {
+            screen: Settings,
+            navigationOptions: {
+                drawerIcon: ({ tintColor }) => <Icon name="md-settings" style={{ fontSize: 24, color: tintColor }} />
+            }
+        },
+        About: {
+            screen: About,
+            navigationOptions: {
+                drawerIcon: ({ tintColor }) => <Icon name="md-information-circle-outline" style={{ fontSize: 24, color: tintColor }} />
+            }
+        },
+        Help: {
+            screen: Help,
+            navigationOptions: {
+                drawerIcon: ({ tintColor }) => <Icon name="md-help-circle-outline" style={{ fontSize: 24, color: tintColor }} />
+            }
         }
     },
-    Settings: {
-        screen: Settings,
-        navigationOptions: {
-            drawerIcon: ({tintColor}) => (
-                <Icon name='md-settings'style={{ fontSize: 24, color: tintColor }}/>
-            )
-        }
-    },
-    About: {
-        screen: About,
-        navigationOptions: {
-            drawerIcon: ({tintColor}) => (
-                <Icon name='md-information-circle-outline'style={{ fontSize: 24, color: tintColor }}/>
-            )
-        }
-    },
-    Help: {
-        screen: Help,
-        navigationOptions: {
-            drawerIcon: ({tintColor}) => (
-                <Icon name='md-help-circle-outline'style={{ fontSize: 24, color: tintColor }}/>
-            )
+    {
+        initialRouteName: 'Home',
+        drawerPosition: 'left',
+        contentComponent: CustomDrawerContentComponent,
+        drawerOpenRoute: 'DrawerOpen',
+        drawerCloseRoute: 'DrawerClose',
+        drawerToggleRoute: 'DrawerToggle',
+        contentOptions: {
+            itemsContainerStyle: {
+                marginTop: -5
+            },
+            iconContainerStyle: {
+                opacity: 1
+            },
+            activeTintColor: MAIN_COLOR,
+            inactiveTintColor: '#1e1e1e',
+            labelStyle: {
+                fontWeight: 'normal'
+            }
         }
     }
-},{
-    initialRouteName: 'Home',
-    drawerPosition: 'left',
-    contentComponent: CustomDrawerContentComponent,
-    drawerOpenRoute: 'DrawerOpen',
-    drawerCloseRoute: 'DrawerClose',
-    drawerToggleRoute: 'DrawerToggle',
-    contentOptions: {
-        itemsContainerStyle: {
-            marginTop: -5
-        },
-        iconContainerStyle: {
-            opacity: 1
-        },
-        activeTintColor: MAIN_COLOR,
-        inactiveTintColor: '#1e1e1e',
-        labelStyle: {
-            fontWeight: 'normal'
-        }
-    }
-});
-
+);
 
 const styles = StyleSheet.create({
     drawerHeader: {
         backgroundColor: '#39b772',
-        height: 200,
+        height: 100
     },
     userImage: {
         marginBottom: 30,
@@ -115,7 +125,7 @@ const styles = StyleSheet.create({
     },
     userName: {
         fontWeight: 'bold',
-        fontSize: 18,
+        fontSize: 24,
         color: 'white'
     },
     description: {
@@ -133,6 +143,5 @@ const styles = StyleSheet.create({
         color: '#1e1e1e'
     }
 });
-
 
 export default createAppContainer(DrawerNavigator);

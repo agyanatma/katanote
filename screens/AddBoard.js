@@ -1,13 +1,12 @@
-import React, { Component } from 'react'
-import { StyleSheet, View, ScrollView } from 'react-native'
+import React, { Component } from 'react';
+import { StyleSheet, View, ScrollView } from 'react-native';
 import { Container, Header, Left, Right, Body, Button, Icon, Content, Title, Item, Input, Form, Textarea, Text, Toast } from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 
 export default class AddBoard extends Component {
-
     _isMounted = false;
-    constructor(props){
+    constructor(props) {
         super(props);
         this.state = {
             name_board: '',
@@ -15,8 +14,8 @@ export default class AddBoard extends Component {
             loading: false,
             isError: false,
             editable: false
-        }
-        const {params} = this.props.navigation.state;
+        };
+        const { params } = this.props.navigation.state;
         this.board_id = params.board_id;
     }
 
@@ -25,118 +24,121 @@ export default class AddBoard extends Component {
             text: message,
             duration: 2000,
             type: type,
-            buttonText: 'Close',
+            buttonText: 'Close'
         });
-    }
+    };
 
-    componentDidMount(){
+    componentDidMount() {
         this.getIdBoard();
         this._isMounted = true;
     }
 
-    componentWillUnmount(){
+    componentWillUnmount() {
         this._isMounted = false;
     }
 
     getIdBoard = async () => {
         try {
             console.log(this.board_id);
-            if(this.board_id){
+            if (this.board_id) {
                 results = await DB.executeSql('SELECT * FROM boards WHERE id=?', [this.board_id]);
-                if(results.rows.length > 0){
-                    if(this._isMounted){
-                        this.setState({ 
+                if (results.rows.length > 0) {
+                    if (this._isMounted) {
+                        this.setState({
                             name_board: results.rows.item(0).name,
                             desc_board: results.rows.item(0).description,
                             editable: true
-                         })
+                        });
                     }
                 }
             }
         } catch (error) {
             console.log(error);
         }
-    }
+    };
 
     addBoard = async () => {
-        const {name_board, desc_board, editable} = this.state;
+        const { name_board, desc_board, editable } = this.state;
         try {
-            if(name_board && editable == false){
+            if (name_board && editable == false) {
                 results = await DB.executeSql('INSERT INTO boards (name, description) VALUES (?,?)', [name_board, desc_board]);
                 console.log('Board added: ', results.rowsAffected);
-                if(results.rowsAffected > 0){
-                    this.toastMessage('New board was added!','success');
+                if (results.rowsAffected > 0) {
+                    this.toastMessage('New board was added!', 'success');
                     this.props.navigation.goBack();
-                }
-                else{
-                    this.toastMessage('Adding new board failed!','danger');
-                    if(this._isMounted){
-                        this.setState({ loading: false })
+                } else {
+                    this.toastMessage('Adding new board failed!', 'danger');
+                    if (this._isMounted) {
+                        this.setState({ loading: false });
                     }
                 }
-            }
-            else if(name_board && editable == true){
+            } else if (name_board && editable == true) {
                 results = await DB.executeSql('UPDATE boards SET name=?, description=? WHERE id=?', [name_board, desc_board, this.board_id]);
                 console.log('Board updated: ', results.rowsAffected);
-                if(results.rowsAffected > 0){
-                    this.toastMessage('Board successfully updated!','success');
+                if (results.rowsAffected > 0) {
+                    this.toastMessage('Board successfully updated!', 'success');
                     this.props.navigation.goBack();
                 }
-            }
-            else{
-                if(this._isMounted){
+            } else {
+                if (this._isMounted) {
                     this.setState({ isError: true });
                 }
             }
         } catch (error) {
-            this.toastMessage('Something wrong','danger')
+            this.toastMessage('Something wrong', 'danger');
             console.log(error);
         }
-    }
+    };
 
     render() {
         return (
             <Container style={styles.container}>
                 <View style={styles.head}>
-                    <Header androidStatusBarColor='#34a869' noShadow style={styles.header}>
+                    <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
                         <Left>
                             <Button transparent onPress={() => this.props.navigation.navigate('Home')}>
-                                <Icon name='md-arrow-back' style={styles.icon} />
+                                <Icon name="md-arrow-back" style={styles.icon} />
                             </Button>
                         </Left>
-                        <Body/>
-                        <Right/>
+                        <Body />
+                        <Right />
                     </Header>
                     <Text style={styles.title}>{this.state.editable ? 'Update Board' : 'Create Board'}</Text>
                 </View>
-                <ScrollView style={styles.content} >
+                <ScrollView style={styles.content}>
                     <Form>
-                        <Item regular style={styles.form} >
-                            <Input placeholderTextColor='grey' placeholder='Title *' onChangeText={(text) => this.setState({name_board: text})} value={this.state.name_board} />
+                        <Item regular style={styles.form}>
+                            <Input
+                                placeholderTextColor="grey"
+                                placeholder="Title *"
+                                onChangeText={text => this._isMounted && this.setState({ name_board: text })}
+                                value={this.state.name_board}
+                            />
                         </Item>
-                        {
-                            this.state.isError ? 
-                            <Text style={styles.textError}>Please fill the title field!</Text>
-                            : <Text style={styles.textError}></Text>
-                        }
-                        <Item regular style={styles.form} >
-                            <Input placeholderTextColor='grey' placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} />
+                        {this.state.isError ? <Text style={styles.textError}>Please fill the title field!</Text> : <Text style={styles.textError} />}
+                        <Item regular style={styles.form}>
+                            <Input
+                                placeholderTextColor="grey"
+                                placeholder="Description"
+                                onChangeText={text => this._isMounted && this.setState({ desc_board: text })}
+                                value={this.state.desc_board}
+                            />
                         </Item>
                         {/* <Textarea regular style={styles.form} placeholderTextColor='grey' bordered rowSpan={5} placeholder='Description' onChangeText={(text) => this.setState({desc_board:text})} value={this.state.desc_board} /> */}
-                        <Button block style={styles.button} onPress={this.addBoard} >
-                            <Text style={styles.textButton} >{this.state.editable ? 'Update' : 'Create'}</Text>
+                        <Button block style={styles.button} onPress={this.addBoard}>
+                            <Text style={styles.textButton}>{this.state.editable ? 'Update' : 'Create'}</Text>
                         </Button>
                     </Form>
                 </ScrollView>
             </Container>
-        )
+        );
     }
 }
 
 const styles = StyleSheet.create({
     container: {
         backgroundColor: 'white',
-        flex:1
+        flex: 1
     },
     head: {
         backgroundColor: '#39b772',
@@ -152,9 +154,9 @@ const styles = StyleSheet.create({
     },
     content: {
         //marginTop: 120,
-        margin: 20,
+        paddingTop: 20,
         //paddingVertical: 50,
-        paddingHorizontal: 25,
+        paddingHorizontal: 45,
         //elevation: 5,
         borderRadius: 10,
         shadowColor: '#fefefe',
@@ -166,13 +168,13 @@ const styles = StyleSheet.create({
         fontSize: 27
     },
     title: {
-        fontWeight: 'bold',
+        fontWeight: 'bold'
     },
     form: {
-        borderRadius: 5,
+        borderRadius: 5
     },
     button: {
-        marginTop: 50,
+        marginTop: 20,
         backgroundColor: '#39b772',
         borderRadius: 10
     },
@@ -191,4 +193,4 @@ const styles = StyleSheet.create({
         color: 'white',
         textAlign: 'center'
     }
-})
+});
