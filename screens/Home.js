@@ -1,6 +1,22 @@
 import React, { Component } from 'react';
-import { Text, StyleSheet, View, Dimensions, FlatList, TouchableNativeFeedback } from 'react-native';
-import { Container, Header, Icon, Left, Right, Body, Button, Spinner } from 'native-base';
+import {
+    Text,
+    StyleSheet,
+    View,
+    Dimensions,
+    FlatList,
+    TouchableNativeFeedback
+} from 'react-native';
+import {
+    Container,
+    Header,
+    Icon,
+    Left,
+    Right,
+    Body,
+    Button,
+    Spinner
+} from 'native-base';
 import Animated from 'react-native-reanimated';
 import DB from '../database';
 
@@ -9,9 +25,16 @@ const AnimatedFlatList = Animated.createAnimatedComponent(FlatList);
 const formatData = (data, numColumns) => {
     const numberOfFullRows = Math.floor(data.length / numColumns);
 
-    let numberOfElementsLastRow = data.length - numberOfFullRows * numColumns;
-    while (numberOfElementsLastRow !== numColumns && numberOfElementsLastRow !== 0) {
-        data.push({ key: `blank-${numberOfElementsLastRow}`, empty: true });
+    let numberOfElementsLastRow =
+        data.length - numberOfFullRows * numColumns;
+    while (
+        numberOfElementsLastRow !== numColumns &&
+        numberOfElementsLastRow !== 0
+    ) {
+        data.push({
+            key: `blank-${numberOfElementsLastRow}`,
+            empty: true
+        });
         numberOfElementsLastRow++;
     }
 
@@ -24,7 +47,11 @@ const MAIN_COLOR = '#39b772';
 const HEADER_HEIGHT = 130;
 
 const scrollY = new Animated.Value(0);
-const diffClampScrollY = Animated.diffClamp(scrollY, 0, HEADER_HEIGHT);
+const diffClampScrollY = Animated.diffClamp(
+    scrollY,
+    0,
+    HEADER_HEIGHT
+);
 const headerY = Animated.interpolate(diffClampScrollY, {
     inputRange: [0, HEADER_HEIGHT],
     outputRange: [0, -HEADER_HEIGHT]
@@ -56,10 +83,13 @@ export default class Home extends Component {
     componentDidMount() {
         this.getDataUser();
         this.fetchData();
-        this.updateTitle = this.props.navigation.addListener('willFocus', async () => {
-            this.getDataUser();
-            this.fetchData();
-        });
+        this.updateTitle = this.props.navigation.addListener(
+            'willFocus',
+            async () => {
+                this.getDataUser();
+                this.fetchData();
+            }
+        );
         // this.updateBoard = this.props.navigation.addListener('willFocus', async () => {
         // });
         this._isMounted = true;
@@ -89,7 +119,10 @@ export default class Home extends Component {
 
     fetchData = async () => {
         try {
-            results = await DB.executeSql('SELECT * FROM boards ORDER BY id DESC', []);
+            results = await DB.executeSql(
+                'SELECT * FROM boards ORDER BY id DESC',
+                []
+            );
             let len = results.rows.length;
             if (len >= 0) {
                 var data = results.rows.raw();
@@ -122,14 +155,25 @@ export default class Home extends Component {
 
     renderItem = ({ item, index }) => {
         if (item.empty === true) {
-            return <View style={[styles.item, styles.itemInvisible]} />;
+            return (
+                <View style={[styles.item, styles.itemInvisible]} />
+            );
         }
         return (
             <View style={styles.item}>
-                <TouchableNativeFeedback onPress={() => this.props.navigation.navigate('Cards', { board_id: item.id, name_board: item.name })}>
+                <TouchableNativeFeedback
+                    onPress={() =>
+                        this.props.navigation.navigate('Cards', {
+                            board_id: item.id,
+                            name_board: item.name
+                        })
+                    }
+                >
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name}</Text>
-                        <Text style={styles.description}>{item.description ? item.description : ''}</Text>
+                        <Text style={styles.description}>
+                            {item.description ? item.description : ''}
+                        </Text>
                     </View>
                 </TouchableNativeFeedback>
             </View>
@@ -140,24 +184,50 @@ export default class Home extends Component {
         return (
             <Container style={styles.container}>
                 <Animated.View style={styles.head}>
-                    <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
+                    <Header
+                        androidStatusBarColor="#34a869"
+                        noShadow
+                        style={styles.header}
+                    >
                         <Left>
-                            <Button transparent onPress={this.handleToggleDrawer}>
-                                <Icon name="md-menu" style={styles.icon} />
+                            <Button
+                                transparent
+                                onPress={this.handleToggleDrawer}
+                            >
+                                <Icon
+                                    name="md-menu"
+                                    style={styles.icon}
+                                />
                             </Button>
                         </Left>
                         <Body />
                         <Right>
-                            <Button transparent onPress={this.handleToggleDrawer}>
-                                <Icon name="md-search" style={styles.icon} />
+                            <Button
+                                transparent
+                                onPress={this.handleToSearch}
+                            >
+                                <Icon
+                                    name="md-search"
+                                    style={styles.icon}
+                                />
                             </Button>
-                            <Button transparent onPress={this.handleToAddBoard}>
-                                <Icon name="md-add" style={styles.icon} />
+                            <Button
+                                transparent
+                                onPress={this.handleToAddBoard}
+                            >
+                                <Icon
+                                    name="md-add"
+                                    style={styles.icon}
+                                />
                             </Button>
                         </Right>
                     </Header>
-                    <Text style={styles.title}>{this.state.userName}</Text>
-                    <Text style={styles.subtitle}>{this.state.userDesc}</Text>
+                    <Text style={styles.title}>
+                        {this.state.userName}
+                    </Text>
+                    <Text style={styles.subtitle}>
+                        {this.state.userDesc}
+                    </Text>
                 </Animated.View>
                 {this.state.loading ? (
                     <Spinner style={styles.spinner} />
@@ -167,15 +237,21 @@ export default class Home extends Component {
                         scrollEventThrottle={16}
                         onScroll={Animated.event([
                             {
-                                nativeEvent: { contentOffset: { y: scrollY } }
+                                nativeEvent: {
+                                    contentOffset: { y: scrollY }
+                                }
                             }
                         ])}
                         data={formatData(this.state.data, numColumns)}
                         //extraData={this.state.refresh}
                         ListEmptyComponent={
                             <View style={styles.blankSpace}>
-                                <Text style={styles.blank}>Didn't find any data...</Text>
-                                <Text style={styles.blank}>Add something above!</Text>
+                                <Text style={styles.blank}>
+                                    Didn't find any data...
+                                </Text>
+                                <Text style={styles.blank}>
+                                    Add something above!
+                                </Text>
                             </View>
                         }
                         contentContainerStyle={styles.list}
@@ -275,7 +351,7 @@ const styles = StyleSheet.create({
         zIndex: 50
     },
     blankSpace: {
-        height: Dimensions.get('window').height / 2,
+        height: Dimensions.get('window').height / 2 + HEADER_HEIGHT,
         justifyContent: 'center',
         alignContent: 'center'
     },
