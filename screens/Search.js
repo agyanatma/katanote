@@ -1,10 +1,5 @@
 import React, { Component } from 'react';
-import {
-    StyleSheet,
-    View,
-    FlatList,
-    TouchableWithoutFeedback
-} from 'react-native';
+import { StyleSheet, View, FlatList, TouchableWithoutFeedback } from 'react-native';
 import {
     Container,
     Header,
@@ -21,7 +16,7 @@ import {
     Textarea,
     Text,
     Spinner,
-    ListItem
+    ListItem,
 } from 'native-base';
 import DB from '../database';
 
@@ -36,7 +31,7 @@ export default class AddBoard extends Component {
             data: [],
             loading: true,
             cancel: false,
-            searchHolder: []
+            searchHolder: [],
         };
     }
 
@@ -58,17 +53,14 @@ export default class AddBoard extends Component {
     fetchData = async () => {
         const { data, searchHolder } = this.state;
         try {
-            results = await DB.executeSql(
-                'SELECT id, name FROM boards',
-                []
-            );
+            results = await DB.executeSql('SELECT id, name FROM boards', []);
             let len = results.rows.length;
             if (len >= 0) {
                 var item = results.rows.raw();
                 this._isMounted &&
                     this.setState({
                         data: item,
-                        searchHolder: item
+                        searchHolder: item,
                     });
             }
             //console.log(this.state.data);
@@ -89,12 +81,9 @@ export default class AddBoard extends Component {
                 for (let i = 0; i < len; i++) {
                     var item = results.rows.item(i);
                     this._isMounted &&
-                        this.setState(prevState => ({
+                        this.setState((prevState) => ({
                             data: [...prevState.data, item],
-                            searchHolder: [
-                                ...prevState.searchHolder,
-                                item
-                            ]
+                            searchHolder: [...prevState.searchHolder, item],
                         }));
                 }
             }
@@ -104,9 +93,9 @@ export default class AddBoard extends Component {
         }
     };
 
-    handleSearch = text => {
+    handleSearch = (text) => {
         const { searchHolder } = this.state;
-        const searchData = searchHolder.filter(item => {
+        const searchData = searchHolder.filter((item) => {
             const itemData = `${item.name.toLowerCase()}`;
             const textData = text.toLowerCase();
             return itemData.indexOf(textData) > -1;
@@ -116,19 +105,19 @@ export default class AddBoard extends Component {
         this.setState({ data: searchData, cancel: true });
     };
 
-    handleToCard = item => {
+    handleToCard = (item) => {
         this.props.navigation.navigate('Cards', {
             board_id: item.id,
-            name_board: item.name
+            name_board: item.name,
         });
     };
 
-    handleToDetail = item => {
+    handleToDetail = (item) => {
         this.props.navigation.navigate('Detail', {
             card_id: item.id,
             board_id: item.id_board,
             name_card: item.name,
-            name_board: item.name_board
+            name_board: item.name_board,
         });
     };
 
@@ -147,32 +136,16 @@ export default class AddBoard extends Component {
                     }
                 >
                     <View style={styles.item}>
-                        <Left
-                            style={{
-                                flexDirection: 'row',
-                                alignItems: 'center'
-                            }}
-                        >
-                            <Icon
-                                name={
-                                    item.id_board
-                                        ? 'md-card'
-                                        : 'md-clipboard'
-                                }
-                                style={styles.icon}
-                            />
-                            <Text style={styles.board}>
+                        <Icon
+                            name={item.id_board ? 'md-card' : 'md-clipboard'}
+                            style={styles.icon}
+                        />
+                        <View style={{ flex: 1, marginHorizontal: 20 }}>
+                            <Text style={styles.board} numberOfLines={1} ellipsizeMode="tail">
                                 {item.name}
                             </Text>
-                        </Left>
-                        <Right>
-                            <Button transparent>
-                                <Icon
-                                    name="arrow-forward"
-                                    style={styles.icon}
-                                />
-                            </Button>
-                        </Right>
+                        </View>
+                        <Icon name="arrow-forward" style={styles.icon} />
                     </View>
                 </TouchableWithoutFeedback>
                 {/* {item.card_name && (
@@ -197,24 +170,15 @@ export default class AddBoard extends Component {
     render() {
         return (
             <Container style={styles.container}>
-                <Header
-                    androidStatusBarColor="#34a869"
-                    searchBar
-                    noShadow
-                    style={styles.header}
-                >
+                <Header androidStatusBarColor="#34a869" searchBar noShadow style={styles.header}>
                     <Item style={styles.search}>
                         <Icon name="md-search" style={styles.icon} />
                         <Input
-                            onChangeText={text =>
-                                this.handleSearch(text)
-                            }
+                            onChangeText={(text) => this.handleSearch(text)}
                             placeholder="Search"
                             placeholderTextColor="#dddd"
                         />
-                        <TouchableWithoutFeedback
-                            onPress={this.handleGoBack}
-                        >
+                        <TouchableWithoutFeedback onPress={this.handleGoBack}>
                             <Text style={styles.cancel}>Cancel</Text>
                         </TouchableWithoutFeedback>
                     </Item>
@@ -226,15 +190,11 @@ export default class AddBoard extends Component {
                         data={this.state.data}
                         contentContainerStyle={styles.list}
                         renderItem={this.renderItem}
-                        keyExtractor={(item, index) =>
-                            index.toString()
-                        }
+                        keyExtractor={(item, index) => index.toString()}
                         showsVerticalScrollIndicator={false}
                         ListEmptyComponent={
                             <View style={styles.blankSpace}>
-                                <Text style={styles.blank}>
-                                    Didn't find any data...
-                                </Text>
+                                <Text style={styles.blank}>Didn't find any data...</Text>
                             </View>
                         }
                     />
@@ -247,56 +207,55 @@ export default class AddBoard extends Component {
 const styles = StyleSheet.create({
     container: {
         backgroundColor: 'white',
-        flex: 1
+        flex: 1,
     },
     header: {
-        backgroundColor: MAIN_COLOR
+        backgroundColor: MAIN_COLOR,
     },
     list: {
         //padding: 5
-        flex: 1
+        flex: 1,
     },
     search: {
-        borderRadius: 10
+        borderRadius: 10,
     },
     item: {
         flexDirection: 'row',
         paddingHorizontal: 20,
-        paddingVertical: 5,
+        paddingVertical: 15,
         borderColor: '#dddd',
-        borderBottomWidth: 0.5
+        borderBottomWidth: 0.5,
         //backgroundColor: 'white',
         // borderWidth: 0.5,
         // borderColor: '#dddd'
     },
     icon: {
         color: '#a5a5a5',
-        fontSize: 21
+        fontSize: 21,
     },
     spinner: {
         color: MAIN_COLOR,
         flex: 1,
         justifyContent: 'center',
         alignContent: 'center',
-        zIndex: 50
+        zIndex: 50,
     },
     cancel: {
         color: '#a5a5a5',
-        marginRight: 20
+        marginRight: 20,
     },
     board: {
         fontSize: 16,
         color: '#1e1e1e',
-        marginLeft: 10
     },
     blankSpace: {
         flex: 1,
         justifyContent: 'center',
-        alignContent: 'center'
+        alignContent: 'center',
     },
     blank: {
         textAlign: 'center',
         color: '#a5a5a5',
-        fontSize: 16
-    }
+        fontSize: 16,
+    },
 });

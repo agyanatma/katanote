@@ -9,9 +9,10 @@ import {
     RefreshControl,
     TouchableWithoutFeedback,
     Keyboard,
-    Image,
     ScrollView,
-    Alert
+    Alert,
+    Image,
+    PermissionsAndroid,
 } from 'react-native';
 import {
     Container,
@@ -29,9 +30,10 @@ import {
     ListItem,
     ActionSheet,
     Thumbnail,
-    CheckBox
+    CheckBox,
 } from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
+//import { Image } from 'react-native-elements';
 import DB from '../database';
 import ImagePicker from 'react-native-image-picker';
 import Lightbox from 'react-native-lightbox';
@@ -39,9 +41,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import moment from 'moment';
 import Share from 'react-native-share';
 import { MaskService } from 'react-native-masked-text';
+import RNFetchBlob from 'rn-fetch-blob';
+import { PERMISSIONS, RESULTS, check } from 'react-native-permissions';
 
 import NumberDetails from '../components/NumberDetails';
 import TextDetails from '../components/TextDetails';
+import axios from 'axios';
 
 const MAIN_COLOR = '#39b772';
 const SECONDARY_COLOR = '#34a869';
@@ -76,7 +81,12 @@ export default class Detail extends Component {
             toggleDetail: true,
             counter: 0,
             totalCounter: 0,
-            loading: true
+            loading: true,
+            filename: '',
+            downloadable: false,
+            thumbnails: '',
+            token: '',
+            progress: 0,
         };
         const { params } = this.props.navigation.state;
         this.card_id = params.card_id;
@@ -86,6 +96,7 @@ export default class Detail extends Component {
     }
 
     componentDidMount() {
+        this.getToken();
         this.fetchAll();
         this._isMounted = true;
         if (this._isMounted) {
@@ -102,8 +113,15 @@ export default class Detail extends Component {
             text: message,
             duration: 5000,
             type: type,
-            buttonText: 'Close'
+            buttonText: 'Close',
         });
+    };
+
+    getToken = async () => {
+        results = await DB.executeSql('SELECT token FROM user', []);
+        if (results.rows.length > 0) {
+            this._isMounted && this.setState({ token: results.rows.item(0).token });
+        }
     };
 
     fetchAll = async () => {
@@ -122,16 +140,16 @@ export default class Detail extends Component {
     handleEdit = async () => {
         const { name_card } = this.state;
         try {
-            results = await DB.executeSql(
-                'UPDATE cards SET name = ? where id = ?',
-                [name_card, this.card_id]
-            );
-            console.log('Results', results.rowsAffected);
+            results = await DB.executeSql('UPDATE cards SET name = ? where id = ?', [
+                name_card,
+                this.card_id,
+            ]);
+            //console.log('Results', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 this._isMounted &&
                     this.setState({
                         editable_title: false,
-                        name_card
+                        name_card,
                     });
             }
         } catch (error) {
@@ -141,11 +159,8 @@ export default class Detail extends Component {
 
     handleDeleteCard = async () => {
         try {
-            results = await DB.executeSql(
-                'DELETE FROM cards WHERE id=?',
-                [this.card_id]
-            );
-            console.log('Deleted card: ', results.rowsAffected);
+            results = await DB.executeSql('DELETE FROM cards WHERE id=?', [this.card_id]);
+            //console.log('Deleted card: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 this.props.navigation.navigate('Cards');
                 this.toastMessage('Delete card success', 'success');
@@ -155,204 +170,162 @@ export default class Detail extends Component {
         }
     };
 
+    handleEditOptions = () => {
+        const BUTTONS = ['Edit Card', 'Delete Card', 'Cancel'];
+
+        ActionSheet.show(
+            {
+                options: BUTTONS,
+                title: 'Select Options',
+                cancelButtonIndex: 2,
+            },
+            (buttonIndex) => {
+                switch (buttonIndex) {
+                    case 0:
+                        ActionSheet.hide();
+                        if (this._isMounted) {
+                            this.setState({ editable_title: true });
+                        }
+                        break;
+                    case 1:
+                        ActionSheet.hide();
+                        Alert.alert(
+                            'Delete Card',
+                            `Are you sure want to delete ${this.name_card} ?`,
+                            [
+                                {
+                                    text: 'CANCEL',
+                                    style: 'cancel',
+                                    onPress: () => console.log('Cancel action'),
+                                },
+                                {
+                                    text: 'DELETE',
+                                    style: 'destructive',
+                                    onPress: () => this.handleDeleteCard(),
+                                },
+                            ]
+                        );
+                        break;
+                }
+            }
+        );
+    };
+
     handleOptions = () => {
-        const {
-            name_card,
-            description_card,
-            image,
-            details
-        } = this.state;
+        const { name_card, description_card, image, details } = this.state;
         const BUTTONS = [
             {
                 text: 'Share on Whatsapp',
                 icon: 'logo-whatsapp',
-                iconColor: '#0cc042'
+                iconColor: '#0cc042',
             },
             {
                 text: 'Share on Facebook',
                 icon: 'logo-facebook',
-                iconColor: '#4267b2'
+                iconColor: '#4267b2',
             },
             {
                 text: 'Share on Twitter',
                 icon: 'logo-twitter',
-                iconColor: '#1c9cea'
+                iconColor: '#1c9cea',
             },
             {
                 text: 'Share on Email',
                 icon: 'mail',
-                iconColor: '#a5a5a5'
+                iconColor: '#a5a5a5',
             },
-            {
-                text: 'Edit Card',
-                icon: 'create',
-                iconColor: '#e2b029'
-            },
-            {
-                text: 'Delete Card',
-                icon: 'trash',
-                iconColor: '#fa213b'
-            },
-            { text: 'Cancel', icon: 'close', iconColoe: '#25de5b' }
         ];
-        const message = details.map(item => {
+        const message = details.map((item) => {
             switch (item.format) {
                 case 3:
-                    var money = MaskService.toMask(
-                        'money',
-                        item.value,
-                        {
-                            unit: '$',
-                            precision: 2,
-                            separator: '.',
-                            delimiter: ','
-                        }
-                    );
+                    var money = MaskService.toMask('money', item.value, {
+                        unit: '$',
+                        precision: 2,
+                        separator: '.',
+                        delimiter: ',',
+                    });
                     break;
                 case 4:
-                    var money = MaskService.toMask(
-                        'money',
-                        item.value,
-                        {
-                            unit: 'Rp',
-                            precision: 0,
-                            separator: '.',
-                            delimiter: ','
-                        }
-                    );
+                    var money = MaskService.toMask('money', item.value, {
+                        unit: 'Rp',
+                        precision: 0,
+                        separator: '.',
+                        delimiter: ',',
+                    });
                     break;
                 case 5:
-                    var money = MaskService.toMask(
-                        'money',
-                        item.value,
-                        {
-                            unit: '¥',
-                            precision: 0,
-                            separator: '.',
-                            delimiter: ','
-                        }
-                    );
+                    var money = MaskService.toMask('money', item.value, {
+                        unit: '¥',
+                        precision: 0,
+                        separator: '.',
+                        delimiter: ',',
+                    });
                     break;
 
                 default:
                     break;
             }
-            return `${item.name ? item.name : 'Item'}: ${
-                item.format > 2 ? money : item.value
-            }\n`;
+            return `${item.name ? item.name : 'Item'}: ${item.format > 2 ? money : item.value}\n`;
         });
-        console.log(message);
+        //console.log(message);
         const shareOptions = {
-            message: `${name_card} :\n${description_card}\n${message.join(
-                ''
-            )}`,
+            message: `${name_card} :\n${description_card}\n${message.join('')}`,
             url: image,
-            whatsAppNumber: '' // country code + phone number
+            whatsAppNumber: '', // country code + phone number
             //filename: image // only for base64 file in Android
         };
 
         ActionSheet.show(
             {
                 options: BUTTONS,
-                cancelButtonIndex: 6,
-                title: 'Select options'
+                title: 'Select Share Options',
             },
-            buttonIndex => {
+            (buttonIndex) => {
                 switch (buttonIndex) {
                     case 0:
                         ActionSheet.hide();
-                        Share.isPackageInstalled('com.whatsapp').then(
-                            ({ isInstalled }) => {
-                                isInstalled
-                                    ? Share.shareSingle(
-                                          Object.assign(
-                                              shareOptions,
-                                              {
-                                                  social:
-                                                      Share.Social
-                                                          .WHATSAPP
-                                              }
-                                          )
-                                      )
-                                    : this.toastMessage(
-                                          'You do not have the application',
-                                          'danger'
-                                      );
-                            }
-                        );
-                        break;
-                    case 1:
-                        ActionSheet.hide();
-                        Share.isPackageInstalled(
-                            'com.facebook.orca'
-                        ).then(({ isInstalled }) => {
+                        Share.isPackageInstalled('com.whatsapp').then(({ isInstalled }) => {
                             isInstalled
                                 ? Share.shareSingle(
                                       Object.assign(shareOptions, {
-                                          social:
-                                              Share.Social.FACEBOOK
+                                          social: Share.Social.WHATSAPP,
                                       })
                                   )
-                                : this.toastMessage(
-                                      'You do not have the application',
-                                      'danger'
-                                  );
+                                : this.toastMessage('You do not have the application', 'danger');
+                        });
+                        break;
+                    case 1:
+                        ActionSheet.hide();
+                        Share.isPackageInstalled('com.facebook.orca').then(({ isInstalled }) => {
+                            isInstalled
+                                ? Share.shareSingle(
+                                      Object.assign(shareOptions, {
+                                          social: Share.Social.FACEBOOK,
+                                      })
+                                  )
+                                : this.toastMessage('You do not have the application', 'danger');
                         });
                         break;
                     case 2:
                         ActionSheet.hide();
-                        Share.isPackageInstalled(
-                            'com.twitter.android'
-                        ).then(({ isInstalled }) => {
+                        Share.isPackageInstalled('com.twitter.android').then(({ isInstalled }) => {
                             isInstalled
                                 ? Share.shareSingle(
                                       Object.assign(shareOptions, {
-                                          social: Share.Social.TWITTER
+                                          social: Share.Social.TWITTER,
                                       })
                                   )
-                                : this.toastMessage(
-                                      'You do not have the application',
-                                      'danger'
-                                  );
+                                : this.toastMessage('You do not have the application', 'danger');
                         });
                         break;
                     case 3:
                         ActionSheet.hide();
                         Share.shareSingle(
                             Object.assign(shareOptions, {
-                                social: Share.Social.EMAIL
+                                social: Share.Social.EMAIL,
                             })
                         );
 
-                        break;
-                    case 4:
-                        ActionSheet.hide();
-                        if (this._isMounted) {
-                            this.setState({ editable_title: true });
-                        }
-                        break;
-                    case 5:
-                        ActionSheet.hide();
-                        Alert.alert(
-                            'Delete Card',
-                            `Are you sure want to delete ${
-                                this.name_card
-                            } ?`,
-                            [
-                                {
-                                    text: 'CANCEL',
-                                    style: 'cancel',
-                                    onPress: () =>
-                                        console.log('Cancel action')
-                                },
-                                {
-                                    text: 'DELETE',
-                                    style: 'destructive',
-                                    onPress: () =>
-                                        this.handleDeleteCard()
-                                }
-                            ]
-                        );
                         break;
 
                     default:
@@ -364,10 +337,9 @@ export default class Detail extends Component {
 
     getCardDescription = async () => {
         try {
-            results = await DB.executeSql(
-                'SELECT description FROM cards WHERE id=?',
-                [this.card_id]
-            );
+            results = await DB.executeSql('SELECT description FROM cards WHERE id=?', [
+                this.card_id,
+            ]);
             if (results.rows.length > 0) {
                 let description = results.rows.item(0).description;
                 if (this._isMounted) {
@@ -382,20 +354,20 @@ export default class Detail extends Component {
     handleUpdateDescription = async () => {
         const { description_card } = this.state;
         try {
-            results = await DB.executeSql(
-                'UPDATE cards SET description=? WHERE id=?',
-                [description_card, this.card_id]
-            );
-            console.log(
-                'Card description updated: ',
-                results.rowsAffected
-            );
+            results = await DB.executeSql('UPDATE cards SET description=? WHERE id=?', [
+                description_card,
+                this.card_id,
+            ]);
+            // console.log(
+            //     'Card description updated: ',
+            //     results.rowsAffected
+            // );
             if (results.rowsAffected > 0) {
                 this._isMounted &&
                     (this.setState({ editable_desc: false }),
-                    this.setState(prevState => ({
+                    this.setState((prevState) => ({
                         ...prevState,
-                        description_card
+                        description_card,
                     })));
             }
         } catch (error) {
@@ -411,23 +383,23 @@ export default class Detail extends Component {
                     'INSERT INTO checkbox (value, card_id) VALUES (?,?)',
                     [new_checklist, this.card_id]
                 );
-                console.log('Checkbox added: ', results.rowsAffected);
+                //console.log('Checkbox added: ', results.rowsAffected);
                 if (results.rowsAffected > 0) {
                     this._isMounted &&
-                        (this.setState(prevState => ({
+                        (this.setState((prevState) => ({
                             checklist: [
                                 ...prevState.checklist,
                                 {
                                     card_id: this.card_id,
                                     done: 0,
                                     id: results.insertId,
-                                    value: new_checklist
-                                }
-                            ]
+                                    value: new_checklist,
+                                },
+                            ],
                         })),
                         this.setState({
                             new_checklist: '',
-                            totalCounter: totalCounter + 1
+                            totalCounter: totalCounter + 1,
                         }));
                 }
             }
@@ -438,22 +410,22 @@ export default class Detail extends Component {
 
     handleOnChangeChecklist = (text, id) => {
         this._isMounted &&
-            this.setState(prevState => ({
+            this.setState((prevState) => ({
                 ...prevState,
-                checklist: prevState.checklist.map(data => ({
+                checklist: prevState.checklist.map((data) => ({
                     ...data,
-                    value: data.id === id ? text : data.value
-                }))
+                    value: data.id === id ? text : data.value,
+                })),
             }));
     };
 
-    handleEditChecklist = async item => {
+    handleEditChecklist = async (item) => {
         try {
-            results = await DB.executeSql(
-                'UPDATE checkbox SET value=? WHERE id=?',
-                [item.value, item.id]
-            );
-            console.log('Checkbox updated: ', results.rowsAffected);
+            results = await DB.executeSql('UPDATE checkbox SET value=? WHERE id=?', [
+                item.value,
+                item.id,
+            ]);
+            //console.log('Checkbox updated: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 if (this._isMounted) {
                     this.setState({ editable_checkbox: false });
@@ -466,10 +438,7 @@ export default class Detail extends Component {
 
     getChecklists = async () => {
         try {
-            results = await DB.executeSql(
-                'SELECT * FROM checkbox WHERE card_id=?',
-                [this.card_id]
-            );
+            results = await DB.executeSql('SELECT * FROM checkbox WHERE card_id=?', [this.card_id]);
             let len = results.rows.length;
             if (len > 0) {
                 let count = 0;
@@ -483,14 +452,14 @@ export default class Detail extends Component {
                         checklist: results.rows.raw(),
                         showCheck: true,
                         totalCounter: len,
-                        counter: count
+                        counter: count,
                     });
                 }
             } else {
                 if (this._isMounted) {
                     this.setState({ showCheck: false });
                 }
-                console.log(this.state.checklist.length);
+                //console.log(this.state.checklist.length);
             }
         } catch (error) {
             console.log(error);
@@ -500,35 +469,29 @@ export default class Detail extends Component {
         }
     };
 
-    handleChecked = async item => {
+    handleChecked = async (item) => {
         const { counter, totalCounter } = this.state;
         try {
             let done = item.done == 0 ? 1 : 0;
-            results = await DB.executeSql(
-                'UPDATE checkbox SET done=? WHERE id=?',
-                [done, item.id]
-            );
-            console.log('Change checked: ', results.rowsAffected);
+            results = await DB.executeSql('UPDATE checkbox SET done=? WHERE id=?', [done, item.id]);
+            //console.log('Change checked: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 //this.getChecklists();
                 this._isMounted &&
-                    this.setState(prevState => ({
+                    this.setState((prevState) => ({
                         ...prevState,
-                        checklist: prevState.checklist.map(data => ({
+                        checklist: prevState.checklist.map((data) => ({
                             ...data,
-                            done:
-                                data.id === item.id ? done : data.done
-                        }))
+                            done: data.id === item.id ? done : data.done,
+                        })),
                     }));
                 switch (done) {
                     case 0:
-                        if (counter > 0)
-                            this.setState({ counter: counter - 1 });
+                        if (counter > 0) this.setState({ counter: counter - 1 });
                         break;
 
                     case 1:
-                        if (counter < totalCounter)
-                            this.setState({ counter: counter + 1 });
+                        if (counter < totalCounter) this.setState({ counter: counter + 1 });
                         break;
 
                     default:
@@ -540,81 +503,54 @@ export default class Detail extends Component {
         }
     };
 
-    handleDeleteCheckbox = async item => {
+    handleDeleteCheckbox = async (item) => {
         const { totalCounter, counter, checklist } = this.state;
         try {
-            results = await DB.executeSql(
-                'DELETE FROM checkbox WHERE id=?',
-                [item.id]
-            );
-            console.log('Delete checkbox: ', results.rowsAffected);
-            console.log(checklist.length);
+            results = await DB.executeSql('DELETE FROM checkbox WHERE id=?', [item.id]);
+            //console.log('Delete checkbox: ', results.rowsAffected);
+            //console.log(checklist.length);
             if (results.rowsAffected > 0) {
                 this._isMounted &&
-                    this.setState(prevState => ({
+                    this.setState((prevState) => ({
                         ...prevState,
-                        checklist: prevState.checklist.filter(
-                            data => data.id !== item.id
-                        )
+                        checklist: prevState.checklist.filter((data) => data.id !== item.id),
                     })),
                     this.setState({
                         totalCounter: totalCounter - 1,
-                        counter:
-                            counter == totalCounter || item.done == 1
-                                ? counter - 1
-                                : counter
+                        counter: counter == totalCounter || item.done == 1 ? counter - 1 : counter,
                     }),
-                    checklist.length == 1 &&
-                        this.setState({ showCheck: false });
+                    checklist.length == 1 && this.setState({ showCheck: false });
             }
         } catch (error) {
             console.log(error);
         }
     };
 
-    renderChecklists = item => {
+    renderChecklists = (item) => {
         const { editable_checkbox } = this.state;
         if (editable_checkbox) {
             return (
                 <View
                     style={{
                         flexDirection: 'row',
-                        justifyContent: 'space-between'
+                        justifyContent: 'space-between',
                     }}
                 >
                     <TextInput
                         key={item.id}
                         style={{ marginLeft: 20 }}
-                        onChangeText={text =>
-                            this.handleOnChangeChecklist(
-                                text,
-                                item.id
-                            )
-                        }
+                        onChangeText={(text) => this.handleOnChangeChecklist(text, item.id)}
                         defaultValue={item.value}
                         onBlur={() =>
                             this.setState({
-                                editable_checkbox: false
+                                editable_checkbox: false,
                             })
                         }
-                        onSubmitEditing={() =>
-                            this.handleEditChecklist(item)
-                        }
+                        onSubmitEditing={() => this.handleEditChecklist(item)}
                         //autoFocus
                     />
-                    <Button
-                        transparent
-                        onPress={() =>
-                            this.handleDeleteCheckbox(item)
-                        }
-                    >
-                        <Icon
-                            name="md-trash"
-                            style={
-                                (styles.textDefault,
-                                styles.iconDefault)
-                            }
-                        />
+                    <Button transparent onPress={() => this.handleDeleteCheckbox(item)}>
+                        <Icon name="md-trash" style={(styles.textDefault, styles.iconDefault)} />
                     </Button>
                 </View>
             );
@@ -627,7 +563,7 @@ export default class Detail extends Component {
                             : {
                                   marginLeft: 20,
                                   textDecorationLine: 'line-through',
-                                  color: '#a5a5a5'
+                                  color: '#a5a5a5',
                               }
                     }
                 >
@@ -639,61 +575,43 @@ export default class Detail extends Component {
 
     handleChangeInput = (text, id) => {
         this._isMounted &&
-            this.setState(prevState => ({
+            this.setState((prevState) => ({
                 ...prevState,
-                details: prevState.details.map(detail => ({
+                details: prevState.details.map((detail) => ({
                     ...detail,
-                    value: detail.id === id ? text : detail.value
-                }))
+                    value: detail.id === id ? text : detail.value,
+                })),
             }));
     };
 
     handleChangeField = (text, id) => {
         this._isMounted &&
-            this.setState(prevState => ({
+            this.setState((prevState) => ({
                 ...prevState,
-                details: prevState.details.map(detail => ({
+                details: prevState.details.map((detail) => ({
                     ...detail,
-                    name: detail.id === id ? text : detail.name
-                }))
+                    name: detail.id === id ? text : detail.name,
+                })),
             }));
     };
 
-    renderAllDetails = item => {
+    renderAllDetails = (item) => {
         const { delete_detail } = this.state;
         switch (item.format) {
             case 1: // text format
                 return (
                     <View key={item.id.toString()}>
                         <TextDetails
-                            onPressRight={() =>
-                                this.handleChooseFormat(item.id)
-                            }
-                            onChangeField={text =>
-                                this.handleChangeField(text, item.id)
-                            }
-                            onSubmitLeft={() =>
-                                this.handleEditDetailField(
-                                    item.name,
-                                    item.id
-                                )
-                            }
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={(text) => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
                             defaultField={item.name}
                             placeholder={'Empty'}
-                            onChangeInput={text =>
-                                this.handleChangeInput(text, item.id)
-                            }
+                            onChangeInput={(text) => this.handleChangeInput(text, item.id)}
                             valueInput={item.value}
                             deleteDetail={delete_detail}
-                            onPressDelete={() =>
-                                this.handleDeleteDetail(item)
-                            }
-                            onSubmitRight={() =>
-                                this.handleEditDetailValue(
-                                    item.value,
-                                    item.id
-                                )
-                            }
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
                         />
                     </View>
                 );
@@ -703,18 +621,9 @@ export default class Detail extends Component {
                 return (
                     <View key={item.id.toString()}>
                         <NumberDetails
-                            onPressRight={() =>
-                                this.handleChooseFormat(item.id)
-                            }
-                            onChangeField={text =>
-                                this.handleChangeField(text, item.id)
-                            }
-                            onSubmitLeft={() =>
-                                this.handleEditDetailField(
-                                    item.name,
-                                    item.id
-                                )
-                            }
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={(text) => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
                             defaultField={item.name}
                             typeMask={'money'}
                             precision={0}
@@ -722,23 +631,11 @@ export default class Detail extends Component {
                             delimiter={','}
                             unit={null}
                             placeholder={'0'}
-                            onChangeInput={rawText =>
-                                this.handleChangeInput(
-                                    rawText,
-                                    item.id
-                                )
-                            }
+                            onChangeInput={(rawText) => this.handleChangeInput(rawText, item.id)}
                             valueInput={item.value}
                             deleteDetail={delete_detail}
-                            onPressDelete={() =>
-                                this.handleDeleteDetail(item)
-                            }
-                            onSubmitRight={() =>
-                                this.handleEditDetailValue(
-                                    item.value,
-                                    item.id
-                                )
-                            }
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
                         />
                     </View>
                 );
@@ -748,18 +645,9 @@ export default class Detail extends Component {
                 return (
                     <View key={item.id.toString()}>
                         <NumberDetails
-                            onPressRight={() =>
-                                this.handleChooseFormat(item.id)
-                            }
-                            onChangeField={text =>
-                                this.handleChangeField(text, item.id)
-                            }
-                            onSubmitLeft={() =>
-                                this.handleEditDetailField(
-                                    item.name,
-                                    item.id
-                                )
-                            }
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={(text) => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
                             defaultField={item.name}
                             typeMask={'money'}
                             precision={0}
@@ -768,24 +656,12 @@ export default class Detail extends Component {
                             unit={'Rp'}
                             placeholder={'Rp0'}
                             onChangeInput={(maskedText, rawText) =>
-                                this.handleChangeInput(
-                                    rawText,
-                                    item.id
-                                )
+                                this.handleChangeInput(rawText, item.id)
                             }
-                            valueInput={
-                                item.value == 0 ? '' : item.value
-                            }
+                            valueInput={item.value == 0 ? '' : item.value}
                             deleteDetail={delete_detail}
-                            onPressDelete={() =>
-                                this.handleDeleteDetail(item)
-                            }
-                            onSubmitRight={() =>
-                                this.handleEditDetailValue(
-                                    item.value,
-                                    item.id
-                                )
-                            }
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
                         />
                     </View>
                 );
@@ -795,18 +671,9 @@ export default class Detail extends Component {
                 return (
                     <View key={item.id.toString()}>
                         <NumberDetails
-                            onPressRight={() =>
-                                this.handleChooseFormat(item.id)
-                            }
-                            onChangeField={text =>
-                                this.handleChangeField(text, item.id)
-                            }
-                            onSubmitLeft={() =>
-                                this.handleEditDetailField(
-                                    item.name,
-                                    item.id
-                                )
-                            }
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={(text) => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
                             defaultField={item.name}
                             typeMask={'money'}
                             precision={2}
@@ -815,24 +682,12 @@ export default class Detail extends Component {
                             unit={'$'}
                             placeholder={'$0.00'}
                             onChangeInput={(maskedText, rawText) =>
-                                this.handleChangeInput(
-                                    rawText,
-                                    item.id
-                                )
+                                this.handleChangeInput(rawText, item.id)
                             }
-                            valueInput={
-                                item.value == 0 ? '' : item.value
-                            }
+                            valueInput={item.value == 0 ? '' : item.value}
                             deleteDetail={delete_detail}
-                            onPressDelete={() =>
-                                this.handleDeleteDetail(item)
-                            }
-                            onSubmitRight={() =>
-                                this.handleEditDetailValue(
-                                    item.value,
-                                    item.id
-                                )
-                            }
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
                         />
                     </View>
                 );
@@ -842,18 +697,9 @@ export default class Detail extends Component {
                 return (
                     <View key={item.id.toString()}>
                         <NumberDetails
-                            onPressRight={() =>
-                                this.handleChooseFormat(item.id)
-                            }
-                            onChangeField={text =>
-                                this.handleChangeField(text, item.id)
-                            }
-                            onSubmitLeft={() =>
-                                this.handleEditDetailField(
-                                    item.name,
-                                    item.id
-                                )
-                            }
+                            onPressRight={() => this.handleChooseFormat(item.id)}
+                            onChangeField={(text) => this.handleChangeField(text, item.id)}
+                            onSubmitLeft={() => this.handleEditDetailField(item.name, item.id)}
                             defaultField={item.name}
                             typeMask={'money'}
                             precision={0}
@@ -862,24 +708,12 @@ export default class Detail extends Component {
                             unit={'¥'}
                             placeholder={'¥0'}
                             onChangeInput={(maskedText, rawText) =>
-                                this.handleChangeInput(
-                                    rawText,
-                                    item.id
-                                )
+                                this.handleChangeInput(rawText, item.id)
                             }
-                            valueInput={
-                                item.value == 0 ? '' : item.value
-                            }
+                            valueInput={item.value == 0 ? '' : item.value}
                             deleteDetail={delete_detail}
-                            onPressDelete={() =>
-                                this.handleDeleteDetail(item)
-                            }
-                            onSubmitRight={() =>
-                                this.handleEditDetailValue(
-                                    item.value,
-                                    item.id
-                                )
-                            }
+                            onPressDelete={() => this.handleDeleteDetail(item)}
+                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
                         />
                     </View>
                 );
@@ -896,19 +730,19 @@ export default class Detail extends Component {
                 'INSERT INTO details (name, format, card_id, value) VALUES (?,?,?,?)',
                 ['', 1, this.card_id, '']
             );
-            console.log('Detail added: ', results.rowsAffected);
+            //console.log('Detail added: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 this._isMounted &&
-                    this.setState(prevState => ({
+                    this.setState((prevState) => ({
                         details: [
                             ...prevState.details,
                             {
                                 card_id: this.card_id,
                                 format: 1,
                                 id: results.insertId,
-                                value: ''
-                            }
-                        ]
+                                value: '',
+                            },
+                        ],
                     }));
             }
         } catch (error) {
@@ -916,19 +750,14 @@ export default class Detail extends Component {
         }
     };
 
-    handleDeleteDetail = async item => {
+    handleDeleteDetail = async (item) => {
         const { details } = this.state;
         try {
-            results = await DB.executeSql(
-                'DELETE FROM details WHERE id=?',
-                [item.id]
-            );
-            console.log('Detail deleted: ', results.rowsAffected);
+            results = await DB.executeSql('DELETE FROM details WHERE id=?', [item.id]);
+            //console.log('Detail deleted: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 this.getAllDetails();
-                details.length == 1 &&
-                    (this._isMounted &&
-                        this.setState({ showDetail: false }));
+                details.length == 1 && (this._isMounted && this.setState({ showDetail: false }));
             }
         } catch (error) {
             console.log();
@@ -937,25 +766,22 @@ export default class Detail extends Component {
 
     getAllDetails = async () => {
         try {
-            results = await DB.executeSql(
-                'SELECT * FROM details WHERE card_id=?',
-                [this.card_id]
-            );
+            results = await DB.executeSql('SELECT * FROM details WHERE card_id=?', [this.card_id]);
             if (results.rows.length > 0) {
                 let details = results.rows.raw();
                 this._isMounted &&
                     this.setState({
                         details: details,
-                        showDetail: true
+                        showDetail: true,
                     });
-                console.log('details :', this.state.details);
+                //console.log('details :', this.state.details);
             }
             if (results.rows.length == 0) {
                 let details = results.rows.raw();
                 this._isMounted &&
                     this.setState({
                         details: details,
-                        showDetail: false
+                        showDetail: false,
                     });
                 //console.log('details :',this.state.details);
             }
@@ -966,21 +792,18 @@ export default class Detail extends Component {
 
     handleEditDetailFormat = async (format, index) => {
         try {
-            results = await DB.executeSql(
-                'UPDATE details SET format=? WHERE id=?',
-                [format, index]
-            );
-            console.log('Format updated: ', results.rowsAffected);
+            results = await DB.executeSql('UPDATE details SET format=? WHERE id=?', [
+                format,
+                index,
+            ]);
+            //console.log('Format updated: ', results.rowsAffected);
             this._isMounted &&
-                this.setState(prevState => ({
+                this.setState((prevState) => ({
                     ...prevState,
-                    details: prevState.details.map(detail => ({
+                    details: prevState.details.map((detail) => ({
                         ...detail,
-                        format:
-                            detail.id === index
-                                ? format
-                                : detail.format
-                    }))
+                        format: detail.id === index ? format : detail.format,
+                    })),
                 }));
         } catch (error) {
             console.log(error);
@@ -989,18 +812,15 @@ export default class Detail extends Component {
 
     handleEditDetailField = async (text, index) => {
         try {
-            results = await DB.executeSql(
-                'UPDATE details SET name=? WHERE id=?',
-                [text, index]
-            );
-            console.log('Field updated: ', results.rowsAffected);
+            results = await DB.executeSql('UPDATE details SET name=? WHERE id=?', [text, index]);
+            //console.log('Field updated: ', results.rowsAffected);
             this._isMounted &&
-                this.setState(prevState => ({
+                this.setState((prevState) => ({
                     ...prevState,
-                    details: prevState.details.map(detail => ({
+                    details: prevState.details.map((detail) => ({
                         ...detail,
-                        name: detail.id === index ? text : detail.name
-                    }))
+                        name: detail.id === index ? text : detail.name,
+                    })),
                 }));
         } catch (error) {
             console.log(error);
@@ -1009,42 +829,31 @@ export default class Detail extends Component {
 
     handleEditDetailValue = async (text, index) => {
         try {
-            results = await DB.executeSql(
-                'UPDATE details SET value=? WHERE id=?',
-                [text, index]
-            );
-            console.log('Value updated: ', results.rowsAffected);
+            results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [text, index]);
+            //console.log('Value updated: ', results.rowsAffected);
             this._isMounted &&
-                this.setState(prevState => ({
+                this.setState((prevState) => ({
                     ...prevState,
-                    details: prevState.details.map(detail => ({
+                    details: prevState.details.map((detail) => ({
                         ...detail,
-                        value:
-                            detail.id === index ? text : detail.value
-                    }))
+                        value: detail.id === index ? text : detail.value,
+                    })),
                 }));
         } catch (error) {
             console.log(error);
         }
     };
 
-    handleChooseFormat = index => {
-        const BUTTONS = [
-            'Text',
-            'Number',
-            'ID Rupiah',
-            'US Dollar',
-            'JP Yen',
-            'Cancel'
-        ];
+    handleChooseFormat = (index) => {
+        const BUTTONS = ['Text', 'Number', 'ID Rupiah', 'US Dollar', 'JP Yen', 'Cancel'];
 
         ActionSheet.show(
             {
                 options: BUTTONS,
                 cancelButtonIndex: 5,
-                title: 'Select format detail'
+                title: 'Select format detail',
             },
-            buttonIndex => {
+            (buttonIndex) => {
                 let format;
                 switch (buttonIndex) {
                     case 0:
@@ -1109,50 +918,44 @@ export default class Detail extends Component {
             title: 'Select Image',
             noData: true,
             mediaType: 'photo',
-            maxWidth: 500,
+            //maxWidth: 500,
             storageOptions: {
                 skipBackup: true,
-                cameraRoll: true,
-                path: 'KataNote'
-            }
+                //waitUntilSaved: true,
+                //cameraRoll: true,
+                path: 'KataNote',
+            },
         };
 
-        ImagePicker.showImagePicker(options, async response => {
+        ImagePicker.showImagePicker(options, async (response) => {
             try {
                 if (response.didCancel) {
                     console.log('Cancel Add Image');
                 } else {
                     if (image == null) {
                         results = await DB.executeSql(
-                            'INSERT INTO images (uri, card_id) VALUES (?,?)',
-                            [response.uri, this.card_id]
+                            'INSERT INTO images (uri, card_id, filename) VALUES (?,?,?)',
+                            [response.path, this.card_id, response.fileName]
                         );
                         if (results.rowsAffected > 0) {
-                            console.log(
-                                'New image added: ',
-                                results.rowsAffected
-                            );
-                            //console.log(response);
                             if (this._isMounted) {
                                 this.setState({
-                                    image: response.uri,
-                                    showAttachment: true
+                                    image: response.path,
+                                    filename: response.fileName,
+                                    showAttachment: true,
                                 });
                             }
                         }
                     } else {
                         results = await DB.executeSql(
-                            'UPDATE images SET uri=? WHERE id=?',
-                            [response.uri, 1]
+                            'UPDATE images SET uri=?,filename=? WHERE card_id=?',
+                            [response.path, response.fileName, this.card_id]
                         );
                         if (results.rowsAffected > 0) {
-                            console.log(
-                                'New image updated: ',
-                                results.rowsAffected
-                            );
                             if (this._isMounted) {
                                 this.setState({
-                                    image: response.uri
+                                    image: response.path,
+                                    filename: response.fileName,
                                 });
                             }
                         }
@@ -1164,21 +967,196 @@ export default class Detail extends Component {
         });
     };
 
+    handleDeleteImage = async () => {
+        const { filename, token } = this.state;
+        const URL = `http://katanoteapi.website/api/delete/${filename}`;
+        const config = {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        };
+        try {
+            results = await DB.executeSql('DELETE FROM images WHERE card_id=?', [this.card_id]);
+            if (results.rowsAffected > 0) {
+                this._isMounted &&
+                    this.setState({
+                        image: null,
+                        showAttachment: false,
+                    });
+                await axios
+                    .get(URL, config)
+                    .then((res) => {
+                        if (res.data.code > 200) {
+                            console.log(res.data.message);
+                        } else {
+                            console.log(res.data.message);
+                        }
+                    })
+                    .catch((error) => console.log(error));
+            }
+        } catch (error) {
+            console.log(error);
+        }
+    };
+
+    handleStoreImage = async () => {
+        const { filename, token } = this.state;
+        this._isMounted &&
+            this.setState({
+                progress: 1,
+            });
+        await RNFetchBlob.fs
+            .exists(`${RNFetchBlob.fs.dirs.PictureDir}/KataNote`)
+            .then((exist) => {
+                if (!exist) {
+                    RNFetchBlob.fs.mkdir(`${RNFetchBlob.fs.dirs.PictureDir}/KataNote`);
+                }
+            })
+            .catch((err) => {
+                console.log(err);
+            });
+
+        await RNFetchBlob.config({
+            fileCache: true,
+            path: `${RNFetchBlob.fs.dirs.PictureDir}/KataNote/${filename}`,
+        })
+            .fetch('GET', `http://katanoteapi.website/uploads/${filename}`, {
+                Authorization: 'Bearer ' + token,
+            })
+            .progress((received, total) => {
+                this._isMounted &&
+                    this.setState({
+                        progress: Math.floor((received / total) * 100),
+                    });
+            })
+            .then(async (res) => {
+                if (res) {
+                    console.log(res);
+                    let path = `${RNFetchBlob.fs.dirs.PictureDir}/KataNote/${filename}`;
+                    results = await DB.executeSql('UPDATE images SET uri=? WHERE card_id=?', [
+                        path,
+                        this.card_id,
+                    ]);
+                    if (results.rowsAffected > 0) {
+                        if (this._isMounted) {
+                            this.setState({
+                                image: path,
+                                filename: filename,
+                                downloadable: false,
+                                progress: 0,
+                            });
+                        }
+                    }
+                    this.toastMessage('Image successfully downloaded!', 'success');
+                } else {
+                    if (this._isMounted) {
+                        this.setState({
+                            downloadable: true,
+                            progress: 0,
+                        });
+                    }
+                }
+            })
+            .catch((err) => {
+                this.toastMessage('Download failed!', 'danger');
+                if (this._isMounted) {
+                    this.setState({
+                        downloadable: true,
+                        progress: 0,
+                    });
+                }
+                console.log(err);
+            });
+    };
+
+    handleDownloadImage = async () => {
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE);
+        await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE);
+
+        await check(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE)
+            .then((result) => {
+                switch (result) {
+                    case RESULTS.UNAVAILABLE:
+                        console.log(
+                            'This feature is not available (on this device / in this context)'
+                        );
+                        break;
+                    case RESULTS.DENIED:
+                        console.log(
+                            'The permission has not been requested / is denied but requestable'
+                        );
+                        break;
+                    case RESULTS.GRANTED:
+                        console.log('The permission is granted');
+                        this.handleStoreImage();
+                        break;
+                    case RESULTS.BLOCKED:
+                        console.log('The permission is denied and not requestable anymore');
+                        break;
+                }
+            })
+            .catch((error) => {
+                console.log(error);
+                this.toastMessage('Something Wrong!', 'danger');
+            });
+    };
+
+    checkImage = async (filename) => {
+        const { image } = this.state;
+        const dirImage = `file://${image}`;
+        await RNFetchBlob.fs
+            .exists(dirImage)
+            .then(async (exist) => {
+                if (exist) {
+                    console.log(this.state.downloadable);
+                    this._isMounted && this.setState({ downloadable: false });
+                } else {
+                    this._isMounted && this.setState({ downloadable: true });
+                    await this.getThumbnail(filename);
+                }
+            })
+            .catch((err) => {
+                console.log(err);
+            });
+    };
+
+    getThumbnail = async (filename) => {
+        const { token } = this.state;
+        const config = {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        };
+        const URL = `http://katanoteapi.website/api/downloads/${filename}/100`;
+        await axios
+            .get(URL, config)
+            .then((response) => {
+                //console.log(response);
+                this._isMounted &&
+                    this.setState({
+                        thumbnails: response.data.data,
+                    });
+            })
+            .catch((error) => {
+                console.log(error);
+            });
+    };
+
     getImageCard = async () => {
         try {
-            results = await DB.executeSql(
-                'SELECT * FROM images WHERE card_id=?',
-                [this.card_id]
-            );
-            console.log(results.rows.raw());
+            results = await DB.executeSql('SELECT * FROM images WHERE card_id=?', [this.card_id]);
+            //console.log(results.rows.raw());
             let len = results.rows.length;
             if (len > 0) {
                 if (this._isMounted) {
                     this.setState({
                         image: results.rows.item(0).uri,
-                        showAttachment: true
+                        filename: results.rows.item(0).filename,
+                        showAttachment: true,
                     });
                 }
+                console.log(results.rows.item(0));
+                await this.checkImage(results.rows.item(0).filename);
             }
         } catch (error) {
             console.log(error);
@@ -1201,34 +1179,34 @@ export default class Detail extends Component {
                             [formatedDate, this.card_id]
                         );
                         if (results.rowsAffected > 0) {
-                            console.log(
-                                'Date added: ',
-                                results.rowsAffected
-                            );
+                            // console.log(
+                            //     'Date added: ',
+                            //     results.rowsAffected
+                            // );
                             await this.getDateCard();
                             if (this._isMounted) {
                                 this.setState({
                                     showDatePicker: false,
-                                    dateChanged: true
+                                    dateChanged: true,
                                 });
                             }
                         }
                         break;
                     case true:
-                        results = await DB.executeSql(
-                            'UPDATE date SET value=? WHERE card_id=?',
-                            [formatedDate, this.card_id]
-                        );
+                        results = await DB.executeSql('UPDATE date SET value=? WHERE card_id=?', [
+                            formatedDate,
+                            this.card_id,
+                        ]);
                         if (results.rowsAffected > 0) {
-                            console.log(
-                                'Date updated: ',
-                                results.rowsAffected
-                            );
+                            // console.log(
+                            //     'Date updated: ',
+                            //     results.rowsAffected
+                            // );
                             await this.getDateCard();
                             if (this._isMounted) {
                                 this.setState({
                                     showDatePicker: false,
-                                    dateChanged: true
+                                    dateChanged: true,
                                 });
                             }
                         }
@@ -1243,11 +1221,8 @@ export default class Detail extends Component {
     handleDeleteDate = async () => {
         const {} = this.state;
         try {
-            results = await DB.executeSql(
-                'DELETE FROM date WHERE card_id=?',
-                [this.card_id]
-            );
-            console.log('Date deleted: ', results.rowsAffected);
+            results = await DB.executeSql('DELETE FROM date WHERE card_id=?', [this.card_id]);
+            //console.log('Date deleted: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 if (this._isMounted) {
                     this.setState({ dateChanged: false });
@@ -1260,14 +1235,9 @@ export default class Detail extends Component {
 
     getDateCard = async () => {
         try {
-            results = await DB.executeSql(
-                'SELECT value FROM date WHERE card_id=?',
-                [this.card_id]
-            );
+            results = await DB.executeSql('SELECT value FROM date WHERE card_id=?', [this.card_id]);
             if (results.rows.length > 0) {
-                let formatedDate = parseInt(
-                    results.rows.item(0).value
-                );
+                let formatedDate = parseInt(results.rows.item(0).value);
                 let date = new Date(formatedDate);
                 if (this._isMounted) {
                     this.setState({ date, dateChanged: true });
@@ -1289,19 +1259,19 @@ export default class Detail extends Component {
             switch (expiredDate) {
                 case true:
                     return {
-                        color: 'red'
+                        color: 'red',
                     };
                     break;
 
                 case false:
                     return {
-                        color: MAIN_COLOR
+                        color: MAIN_COLOR,
                     };
                     break;
             }
         }
         return {
-            color: '#a5a5a5'
+            color: '#a5a5a5',
         };
     }
 
@@ -1309,35 +1279,24 @@ export default class Detail extends Component {
         const { editable_title, editable_desc } = this.state;
         if (editable_title) {
             return (
-                <Header
-                    androidStatusBarColor="#34a869"
-                    noShadow
-                    style={styles.header}
-                >
+                <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
                     <Left>
                         <Button
                             transparent
                             onPress={() =>
                                 this.setState({
                                     editable_title: false,
-                                    name_card: this.name_card
+                                    name_card: this.name_card,
                                 })
                             }
                         >
-                            <Icon
-                                name="md-close"
-                                style={styles.iconHeader}
-                            />
+                            <Icon name="md-close" style={styles.iconHeader} />
                         </Button>
                     </Left>
                     <Body />
                     <Right>
                         <Button transparent onPress={this.handleEdit}>
-                            <Icon
-                                type="Ionicons"
-                                name="md-checkmark"
-                                style={styles.iconHeader}
-                            />
+                            <Icon type="Ionicons" name="md-checkmark" style={styles.iconHeader} />
                         </Button>
                     </Right>
                 </Header>
@@ -1345,77 +1304,50 @@ export default class Detail extends Component {
         }
         if (editable_desc) {
             return (
-                <Header
-                    androidStatusBarColor="#34a869"
-                    noShadow
-                    style={styles.header}
-                >
+                <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
                     <Left>
                         <Button
                             transparent
                             onPress={() => {
                                 this.setState({
-                                    editable_desc: false
+                                    editable_desc: false,
                                 }),
                                     this.getCardDescription();
                             }}
                         >
-                            <Icon
-                                name="md-close"
-                                style={styles.iconHeader}
-                            />
+                            <Icon name="md-close" style={styles.iconHeader} />
                         </Button>
                     </Left>
                     <Body />
                     <Right>
-                        <Button
-                            transparent
-                            onPress={this.handleUpdateDescription}
-                        >
-                            <Icon
-                                type="Ionicons"
-                                name="md-checkmark"
-                                style={styles.iconHeader}
-                            />
+                        <Button transparent onPress={this.handleUpdateDescription}>
+                            <Icon type="Ionicons" name="md-checkmark" style={styles.iconHeader} />
                         </Button>
                     </Right>
                 </Header>
             );
         } else {
             return (
-                <Header
-                    androidStatusBarColor="#34a869"
-                    noShadow
-                    style={styles.header}
-                >
+                <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
                     <Left>
                         <Button transparent onPress={this.handleBack}>
-                            <Icon
-                                name="md-arrow-back"
-                                style={styles.iconHeader}
-                            />
+                            <Icon name="md-arrow-back" style={styles.iconHeader} />
                         </Button>
                     </Left>
                     <Body />
                     <Right>
-                        <Button
-                            transparent
-                            onPress={this.handleAddImage}
-                        >
+                        <Button transparent onPress={this.handleAddImage}>
                             <Icon
                                 type="MaterialCommunityIcons"
                                 name="image-plus"
                                 style={styles.iconHeader}
                             />
                         </Button>
-                        <Button
-                            transparent
-                            onPress={this.handleOptions}
-                        >
-                            <Icon
-                                name="md-more"
-                                style={styles.iconHeader}
-                            />
+                        <Button transparent onPress={this.handleOptions}>
+                            <Icon name="md-share" style={styles.iconHeader} />
+                        </Button>
+                        <Button transparent onPress={this.handleEditOptions}>
+                            <Icon name="md-more" style={styles.iconHeader} />
                         </Button>
                     </Right>
                 </Header>
@@ -1429,18 +1361,10 @@ export default class Detail extends Component {
             return (
                 <ListItem icon onPress={this.handleButtonDetail}>
                     <Left>
-                        <Icon
-                            name="md-add"
-                            style={
-                                (styles.textDefault,
-                                styles.iconDefault)
-                            }
-                        />
+                        <Icon name="md-add" style={(styles.textDefault, styles.iconDefault)} />
                     </Left>
                     <Body style={{ borderBottomWidth: 0 }}>
-                        <Text style={styles.textDefault}>
-                            Add Detail
-                        </Text>
+                        <Text style={styles.textDefault}>Add Detail</Text>
                     </Body>
                 </ListItem>
             );
@@ -1487,7 +1411,11 @@ export default class Detail extends Component {
             expiredDate,
             editable_checkbox,
             toggleChecklist,
-            toggleAttachment
+            toggleAttachment,
+            filename,
+            downloadable,
+            thumbnails,
+            progress,
         } = this.state;
         return (
             <Container style={styles.container}>
@@ -1502,13 +1430,11 @@ export default class Detail extends Component {
                         editable_title ? (
                             <TextInput
                                 style={styles.titleEdit}
-                                onChangeText={text =>
-                                    this.setState({ name_card: text })
-                                }
+                                onChangeText={(text) => this.setState({ name_card: text })}
                                 value={name_card}
                                 onBlur={() =>
                                     this.setState({
-                                        editable_title: false
+                                        editable_title: false,
                                     })
                                 }
                                 onSubmitEditing={this.handleEdit}
@@ -1524,9 +1450,7 @@ export default class Detail extends Component {
                                 {name_card}
                             </Text>
                         )}
-                        <Text style={styles.subtitle}>{`Item from ${
-                            this.name_board
-                        }`}</Text>
+                        <Text style={styles.subtitle}>{`Item from ${this.name_board}`}</Text>
                     </View>
                     {this.state.loading ? (
                         <Spinner style={styles.spinner} />
@@ -1535,7 +1459,7 @@ export default class Detail extends Component {
                             <View
                                 style={{
                                     paddingHorizontal: 25,
-                                    paddingVertical: 20
+                                    paddingVertical: 20,
                                 }}
                             >
                                 {//----------------------------------------DESCRIPTION SECTION----------------------------------------
@@ -1545,20 +1469,17 @@ export default class Detail extends Component {
                                         style={{
                                             color: MAIN_TEXT,
                                             padding: 0,
-                                            margin: 0
+                                            margin: 0,
                                         }}
                                         multiline={true}
                                         value={description_card}
-                                        onChangeText={text =>
+                                        onChangeText={(text) =>
                                             this.setState({
-                                                description_card: text
+                                                description_card: text,
                                             })
                                         }
                                         autoFocus={editable_desc}
-                                        onBlur={
-                                            this
-                                                .handleUpdateDescription
-                                        }
+                                        onBlur={this.handleUpdateDescription}
                                         autoFocus
                                     />
                                 ) : (
@@ -1568,9 +1489,7 @@ export default class Detail extends Component {
                                                 ? { color: '#a5a5a5' }
                                                 : { color: MAIN_TEXT }
                                         }
-                                        onPress={
-                                            this.handleEditableDesc
-                                        }
+                                        onPress={this.handleEditableDesc}
                                     >
                                         {description_card
                                             ? description_card
@@ -1584,7 +1503,7 @@ export default class Detail extends Component {
                                     icon
                                     onPress={() =>
                                         this.setState({
-                                            showDatePicker: true
+                                            showDatePicker: true,
                                         })
                                     }
                                 >
@@ -1593,15 +1512,13 @@ export default class Detail extends Component {
                                             name="md-calendar"
                                             style={[
                                                 styles.iconDefault,
-                                                this.handleExpiredStyle(
-                                                    expiredDate
-                                                )
+                                                this.handleExpiredStyle(expiredDate),
                                             ]}
                                         />
                                     </Left>
                                     <Body
                                         style={{
-                                            borderBottomWidth: 0
+                                            borderBottomWidth: 0,
                                         }}
                                     >
                                         {showDatePicker ? (
@@ -1609,23 +1526,13 @@ export default class Detail extends Component {
                                                 value={date}
                                                 mode="date"
                                                 display="calendar"
-                                                minimumDate={
-                                                    new Date()
-                                                }
-                                                onChange={
-                                                    this.handleAddDate
-                                                }
+                                                minimumDate={new Date()}
+                                                onChange={this.handleAddDate}
                                             />
                                         ) : (
-                                            <Text
-                                                style={this.handleExpiredStyle(
-                                                    expiredDate
-                                                )}
-                                            >
+                                            <Text style={this.handleExpiredStyle(expiredDate)}>
                                                 {dateChanged
-                                                    ? `Due Date: ${moment(
-                                                          date
-                                                      ).format(
+                                                    ? `Due Date: ${moment(date).format(
                                                           'dddd, DD MMMM YYYY'
                                                       )}`
                                                     : 'Due Date'}
@@ -1634,82 +1541,49 @@ export default class Detail extends Component {
                                     </Body>
                                     <Right
                                         style={{
-                                            borderBottomWidth: 0
+                                            borderBottomWidth: 0,
                                         }}
                                     >
                                         {dateChanged && (
                                             <Icon
                                                 name="md-close"
-                                                style={
-                                                    styles.iconDefault
-                                                }
-                                                onPress={
-                                                    this
-                                                        .handleDeleteDate
-                                                }
+                                                style={styles.iconDefault}
+                                                onPress={this.handleDeleteDate}
                                             />
                                         )}
                                     </Right>
                                 </ListItem>
                                 {!showDetail && (
-                                    <ListItem
-                                        icon
-                                        onPress={
-                                            this.handleButtonDetail
-                                        }
-                                    >
+                                    <ListItem icon onPress={this.handleButtonDetail}>
                                         <Left>
                                             <Icon
                                                 name="md-add"
-                                                style={
-                                                    (styles.textDefault,
-                                                    styles.iconDefault)
-                                                }
+                                                style={(styles.textDefault, styles.iconDefault)}
                                             />
                                         </Left>
                                         <Body
                                             style={{
-                                                borderBottomWidth: 0
+                                                borderBottomWidth: 0,
                                             }}
                                         >
-                                            <Text
-                                                style={
-                                                    styles.textDefault
-                                                }
-                                            >
-                                                Add Detail
-                                            </Text>
+                                            <Text style={styles.textDefault}>Add Detail</Text>
                                         </Body>
                                     </ListItem>
                                 )}
                                 {!showCheck && (
-                                    <ListItem
-                                        icon
-                                        onPress={
-                                            this.handleButtonTask
-                                        }
-                                    >
+                                    <ListItem icon onPress={this.handleButtonTask}>
                                         <Left>
                                             <Icon
                                                 name="md-checkbox-outline"
-                                                style={
-                                                    (styles.textDefault,
-                                                    styles.iconDefault)
-                                                }
+                                                style={(styles.textDefault, styles.iconDefault)}
                                             />
                                         </Left>
                                         <Body
                                             style={{
-                                                borderBottomWidth: 0
+                                                borderBottomWidth: 0,
                                             }}
                                         >
-                                            <Text
-                                                style={
-                                                    styles.textDefault
-                                                }
-                                            >
-                                                Add Task
-                                            </Text>
+                                            <Text style={styles.textDefault}>Add Task</Text>
                                         </Body>
                                     </ListItem>
                                 )}
@@ -1719,39 +1593,33 @@ export default class Detail extends Component {
                                 <View>
                                     <View style={styles.detailTitle}>
                                         <ListItem icon>
-                                            <Left
-                                                style={{ padding: 0 }}
-                                            >
+                                            <Left style={{ padding: 0 }}>
                                                 <Icon
                                                     style={{
                                                         color: MAIN_TEXT,
-                                                        fontSize: 24
+                                                        fontSize: 24,
                                                     }}
                                                     name="md-list"
                                                 />
                                             </Left>
                                             <Body
                                                 style={{
-                                                    borderBottomWidth: 0
+                                                    borderBottomWidth: 0,
                                                 }}
                                             >
                                                 <TouchableWithoutFeedback
                                                     onPress={() => {
-                                                        this
-                                                            ._isMounted &&
-                                                            this.setState(
-                                                                {
-                                                                    toggleDetail: !toggleDetail
-                                                                }
-                                                            );
+                                                        this._isMounted &&
+                                                            this.setState({
+                                                                toggleDetail: !toggleDetail,
+                                                            });
                                                     }}
                                                 >
                                                     <Text
                                                         style={{
                                                             fontSize: 20,
-                                                            fontWeight:
-                                                                '700',
-                                                            color: MAIN_TEXT
+                                                            fontWeight: '700',
+                                                            color: MAIN_TEXT,
                                                         }}
                                                     >
                                                         Details
@@ -1763,29 +1631,19 @@ export default class Detail extends Component {
                                                     style={{
                                                         borderBottomWidth: 0,
                                                         width: 80,
-                                                        justifyContent:
-                                                            'center'
+                                                        justifyContent: 'center',
                                                     }}
                                                 >
-                                                    {details.length >
-                                                        0 && (
+                                                    {details.length > 0 && (
                                                         <TouchableWithoutFeedback
                                                             onPress={() =>
-                                                                this.setState(
-                                                                    {
-                                                                        delete_detail: !delete_detail
-                                                                    }
-                                                                )
+                                                                this.setState({
+                                                                    delete_detail: !delete_detail,
+                                                                })
                                                             }
                                                         >
-                                                            <Text
-                                                                style={
-                                                                    styles.textDefault
-                                                                }
-                                                            >
-                                                                {delete_detail
-                                                                    ? 'Cancel'
-                                                                    : 'Edit'}
+                                                            <Text style={styles.textDefault}>
+                                                                {delete_detail ? 'Cancel' : 'Edit'}
                                                             </Text>
                                                         </TouchableWithoutFeedback>
                                                     )}
@@ -1794,20 +1652,13 @@ export default class Detail extends Component {
                                         </ListItem>
                                     </View>
                                     {toggleDetail && (
-                                        <View
-                                            style={styles.addDetail}
-                                        >
+                                        <View style={styles.addDetail}>
                                             {details &&
-                                                details.map(item => {
-                                                    return this.renderAllDetails(
-                                                        item
-                                                    );
+                                                details.map((item) => {
+                                                    return this.renderAllDetails(item);
                                                 })}
                                             <TouchableWithoutFeedback
-                                                onPress={
-                                                    this
-                                                        .handleAddDetails
-                                                }
+                                                onPress={this.handleAddDetails}
                                             >
                                                 <ListItem icon>
                                                     <Left>
@@ -1821,16 +1672,11 @@ export default class Detail extends Component {
                                                     </Left>
                                                     <Body
                                                         style={{
-                                                            borderBottomWidth: 0
+                                                            borderBottomWidth: 0,
                                                         }}
                                                     >
-                                                        <Text
-                                                            style={
-                                                                styles.textDefault
-                                                            }
-                                                        >
-                                                            Add new
-                                                            detail...
+                                                        <Text style={styles.textDefault}>
+                                                            Add new detail...
                                                         </Text>
                                                     </Body>
                                                 </ListItem>
@@ -1845,50 +1691,42 @@ export default class Detail extends Component {
                                 <View>
                                     <View style={styles.detailTitle}>
                                         <ListItem icon>
-                                            <Left
-                                                style={{ padding: 0 }}
-                                            >
+                                            <Left style={{ padding: 0 }}>
                                                 <Icon
                                                     style={{
                                                         color: MAIN_TEXT,
-                                                        fontSize: 24
+                                                        fontSize: 24,
                                                     }}
                                                     name="md-checkbox-outline"
                                                 />
                                             </Left>
                                             <Body
                                                 style={{
-                                                    borderBottomWidth: 0
+                                                    borderBottomWidth: 0,
                                                 }}
                                             >
                                                 <TouchableWithoutFeedback
                                                     onPress={() => {
-                                                        this
-                                                            ._isMounted &&
-                                                            this.setState(
-                                                                {
-                                                                    toggleChecklist: !toggleChecklist
-                                                                }
-                                                            );
+                                                        this._isMounted &&
+                                                            this.setState({
+                                                                toggleChecklist: !toggleChecklist,
+                                                            });
                                                     }}
                                                 >
-                                                    {checklist.length >
-                                                    0 ? (
+                                                    {checklist.length > 0 ? (
                                                         <Text
                                                             style={{
                                                                 fontSize: 20,
-                                                                fontWeight:
-                                                                    '700',
-                                                                color: MAIN_TEXT
+                                                                fontWeight: '700',
+                                                                color: MAIN_TEXT,
                                                             }}
                                                         >{`Checklist ${counter}/${totalCounter}`}</Text>
                                                     ) : (
                                                         <Text
                                                             style={{
                                                                 fontSize: 20,
-                                                                fontWeight:
-                                                                    '700',
-                                                                color: MAIN_TEXT
+                                                                fontWeight: '700',
+                                                                color: MAIN_TEXT,
                                                             }}
                                                         >{`Checklist`}</Text>
                                                     )}
@@ -1899,32 +1737,22 @@ export default class Detail extends Component {
                                                     style={{
                                                         borderBottomWidth: 0,
                                                         width: 80,
-                                                        justifyContent:
-                                                            'center'
+                                                        justifyContent: 'center',
                                                     }}
                                                 >
-                                                    {checklist.length >
-                                                        0 && (
+                                                    {checklist.length > 0 && (
                                                         <TouchableWithoutFeedback
                                                             style={{
-                                                                alignItems:
-                                                                    'center'
+                                                                alignItems: 'center',
                                                             }}
                                                             onPress={() =>
-                                                                this
-                                                                    ._isMounted &&
-                                                                this.setState(
-                                                                    {
-                                                                        editable_checkbox: !editable_checkbox
-                                                                    }
-                                                                )
+                                                                this._isMounted &&
+                                                                this.setState({
+                                                                    editable_checkbox: !editable_checkbox,
+                                                                })
                                                             }
                                                         >
-                                                            <Text
-                                                                style={
-                                                                    styles.textDefault
-                                                                }
-                                                            >
+                                                            <Text style={styles.textDefault}>
                                                                 {editable_checkbox
                                                                     ? 'Cancel'
                                                                     : 'Edit'}
@@ -1936,47 +1764,32 @@ export default class Detail extends Component {
                                         </ListItem>
                                     </View>
                                     {toggleChecklist && (
-                                        <View
-                                            style={styles.addDetail}
-                                        >
+                                        <View style={styles.addDetail}>
                                             {checklist &&
-                                                checklist.map(
-                                                    item => {
-                                                        return (
-                                                            <ListItem
-                                                                icon
-                                                                key={
-                                                                    item.id
+                                                checklist.map((item) => {
+                                                    return (
+                                                        <ListItem icon key={item.id}>
+                                                            <CheckBox
+                                                                checked={
+                                                                    item.done == 0 ? false : true
                                                                 }
+                                                                onPress={this.handleChecked.bind(
+                                                                    this,
+                                                                    item
+                                                                )}
+                                                            />
+                                                            <Body
+                                                                style={{
+                                                                    borderBottomWidth: 0,
+                                                                }}
                                                             >
-                                                                <CheckBox
-                                                                    checked={
-                                                                        item.done ==
-                                                                        0
-                                                                            ? false
-                                                                            : true
-                                                                    }
-                                                                    onPress={this.handleChecked.bind(
-                                                                        this,
-                                                                        item
-                                                                    )}
-                                                                />
-                                                                <Body
-                                                                    style={{
-                                                                        borderBottomWidth: 0
-                                                                    }}
-                                                                >
-                                                                    {this.renderChecklists(
-                                                                        item
-                                                                    )}
-                                                                </Body>
-                                                            </ListItem>
-                                                        );
-                                                    }
-                                                )}
+                                                                {this.renderChecklists(item)}
+                                                            </Body>
+                                                        </ListItem>
+                                                    );
+                                                })}
                                             <ListItem icon>
-                                                {new_checklist.length >
-                                                0 ? (
+                                                {new_checklist.length > 0 ? (
                                                     <Left>
                                                         <Icon
                                                             name="md-close"
@@ -1985,12 +1798,9 @@ export default class Detail extends Component {
                                                                 styles.iconDefault)
                                                             }
                                                             onPress={() => {
-                                                                this.setState(
-                                                                    {
-                                                                        new_checklist:
-                                                                            ''
-                                                                    }
-                                                                ),
+                                                                this.setState({
+                                                                    new_checklist: '',
+                                                                }),
                                                                     Keyboard.dismiss();
                                                             }}
                                                         />
@@ -2008,37 +1818,29 @@ export default class Detail extends Component {
                                                 )}
                                                 <Body
                                                     style={{
-                                                        borderBottomWidth: 0
+                                                        borderBottomWidth: 0,
                                                     }}
                                                 >
                                                     <TextInput
                                                         placeholder="Add new task..."
-                                                        onChangeText={text =>
-                                                            this.setState(
-                                                                {
-                                                                    new_checklist: text
-                                                                }
-                                                            )
+                                                        onChangeText={(text) =>
+                                                            this.setState({
+                                                                new_checklist: text,
+                                                            })
                                                         }
-                                                        value={
-                                                            new_checklist
-                                                        }
+                                                        value={new_checklist}
                                                         //autoFocus={showCheck}
                                                     />
                                                 </Body>
-                                                {new_checklist.length >
-                                                0 ? (
+                                                {new_checklist.length > 0 ? (
                                                     <Right
                                                         style={{
-                                                            borderBottomWidth: 0
+                                                            borderBottomWidth: 0,
                                                         }}
                                                     >
                                                         <Button
                                                             transparent
-                                                            onPress={
-                                                                this
-                                                                    .handleAddChecklist
-                                                            }
+                                                            onPress={this.handleAddChecklist}
                                                         >
                                                             <Icon
                                                                 type="Ionicons"
@@ -2061,77 +1863,126 @@ export default class Detail extends Component {
                             {showAttachment && (
                                 <View>
                                     <View style={styles.detailTitle}>
-                                        <TouchableWithoutFeedback
-                                            onPress={() => {
-                                                this._isMounted &&
-                                                    this.setState({
-                                                        toggleAttachment: !toggleAttachment
-                                                    });
-                                            }}
-                                        >
-                                            <ListItem icon>
-                                                <Left
+                                        <ListItem icon>
+                                            <Left
+                                                style={{
+                                                    padding: 0,
+                                                }}
+                                            >
+                                                <Icon
                                                     style={{
-                                                        padding: 0
+                                                        color: MAIN_TEXT,
+                                                        fontSize: 24,
                                                     }}
-                                                >
-                                                    <Icon
-                                                        style={{
-                                                            color: MAIN_TEXT,
-                                                            fontSize: 24
-                                                        }}
-                                                        type="FontAwesome"
-                                                        name="paperclip"
-                                                    />
-                                                </Left>
-                                                <Body
-                                                    style={{
-                                                        borderBottomWidth: 0
+                                                    type="FontAwesome"
+                                                    name="paperclip"
+                                                />
+                                            </Left>
+                                            <Body
+                                                style={{
+                                                    borderBottomWidth: 0,
+                                                }}
+                                            >
+                                                <TouchableWithoutFeedback
+                                                    onPress={() => {
+                                                        this._isMounted &&
+                                                            this.setState({
+                                                                toggleAttachment: !toggleAttachment,
+                                                            });
                                                     }}
                                                 >
                                                     <Text
                                                         style={{
                                                             fontSize: 20,
-                                                            fontWeight:
-                                                                '700',
-                                                            color: MAIN_TEXT
+                                                            fontWeight: '700',
+                                                            color: MAIN_TEXT,
                                                         }}
                                                     >
                                                         Attachments
                                                     </Text>
-                                                </Body>
-                                            </ListItem>
-                                        </TouchableWithoutFeedback>
-                                    </View>
-                                    {toggleAttachment && (
-                                        <View
-                                            style={styles.addDetail}
-                                        >
-                                            <ListItem
+                                                </TouchableWithoutFeedback>
+                                            </Body>
+
+                                            <Right
                                                 style={{
-                                                    borderBottomWidth: 0
+                                                    borderBottomWidth: 0,
+                                                    justifyContent: 'center',
                                                 }}
                                             >
-                                                <Lightbox
-                                                    style={{
-                                                        flex: 1
-                                                    }}
-                                                    underlayColor="transparent"
-                                                >
-                                                    {/* <Thumbnail square large source={{uri: image}} /> */}
-                                                    <Image
-                                                        style={
-                                                            styles.image
-                                                        }
-                                                        source={{
-                                                            uri: image
+                                                {downloadable && progress == 0 && (
+                                                    <TouchableWithoutFeedback
+                                                        style={{
+                                                            alignItems: 'center',
                                                         }}
-                                                        resizeMode={
-                                                            'contain'
-                                                        }
-                                                    />
-                                                </Lightbox>
+                                                        onPress={this.handleDownloadImage}
+                                                    >
+                                                        <Icon
+                                                            name="md-download"
+                                                            style={{
+                                                                color: '#a6a6a6',
+                                                                fontSize: 21,
+                                                                paddingRight: 20,
+                                                            }}
+                                                        />
+                                                    </TouchableWithoutFeedback>
+                                                )}
+                                                {progress > 0 && (
+                                                    <Text
+                                                        style={{ textAlign: 'center' }}
+                                                    >{`Downloading...${progress}%`}</Text>
+                                                )}
+                                            </Right>
+                                        </ListItem>
+                                    </View>
+                                    {toggleAttachment && (
+                                        <View style={styles.addDetail}>
+                                            <ListItem
+                                                style={{
+                                                    borderBottomWidth: 0,
+                                                }}
+                                            >
+                                                {downloadable ? (
+                                                    thumbnails ? (
+                                                        <Image
+                                                            style={styles.image}
+                                                            source={{
+                                                                uri: thumbnails,
+                                                            }}
+                                                            resizeMode={'contain'}
+                                                            blurRadius={5}
+                                                        />
+                                                    ) : (
+                                                        <Image
+                                                            style={styles.image}
+                                                            source={require('../assets/default.jpg')}
+                                                            resizeMode={'contain'}
+                                                            blurRadius={5}
+                                                        />
+                                                    )
+                                                ) : (
+                                                    <Lightbox
+                                                        style={{
+                                                            flex: 1,
+                                                        }}
+                                                        underlayColor="transparent"
+                                                    >
+                                                        <Image
+                                                            style={styles.image}
+                                                            source={{
+                                                                uri: `file://${image}`,
+                                                            }}
+                                                            resizeMode={'contain'}
+                                                        />
+                                                    </Lightbox>
+                                                )}
                                             </ListItem>
+                                            <Button
+                                                block
+                                                transparent
+                                                onPress={this.handleDeleteImage}
+                                            >
+                                                <Text style={{ color: 'red' }}>DELETE IMAGE</Text>
+                                            </Button>
                                         </View>
                                     )}
                                 </View>
@@ -2147,20 +1998,20 @@ export default class Detail extends Component {
 const styles = StyleSheet.create({
     container: {
         backgroundColor: '#fafafa',
-        flex: 1
+        flex: 1,
     },
     header: {
-        backgroundColor: MAIN_COLOR
+        backgroundColor: MAIN_COLOR,
     },
     head: {
         paddingHorizontal: 25,
         backgroundColor: MAIN_COLOR,
-        paddingBottom: 15
+        paddingBottom: 15,
     },
     list: {
         paddingTop: 40,
         padding: 15,
-        backgroundColor: 'transparent'
+        backgroundColor: 'transparent',
     },
     titlePage: {
         //paddingBottom: 20
@@ -2171,7 +2022,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: 'white',
         margin: 0,
-        padding: 0
+        padding: 0,
     },
     titleEdit: {
         fontSize: 27,
@@ -2180,21 +2031,21 @@ const styles = StyleSheet.create({
         margin: 0,
         padding: 0,
         borderBottomWidth: 2,
-        borderColor: '#34a869'
+        borderColor: '#34a869',
     },
     subtitle: {
         fontSize: 14,
         fontWeight: 'normal',
         color: 'white',
-        marginTop: 5
+        marginTop: 5,
     },
     iconHeader: {
         color: 'white',
-        fontSize: 27
+        fontSize: 27,
     },
     icon: {
         color: '#a6a6a6',
-        fontSize: 21
+        fontSize: 21,
     },
     item: {
         backgroundColor: 'white',
@@ -2203,22 +2054,22 @@ const styles = StyleSheet.create({
         //padding: 15,
         borderRadius: 5,
         flex: 1,
-        elevation: 3
+        elevation: 3,
         //height: Dimensions.get('window').width / numColumns
     },
     itemInvisible: {
         backgroundColor: 'transparent',
-        elevation: 0
+        elevation: 0,
     },
     itemContent: {
         //height: Dimensions.get('window').width / numColumns,
-        padding: 15
+        padding: 15,
     },
     board: {
         fontSize: 16,
         fontWeight: '700',
         marginBottom: 10,
-        color: '#1e1e1e'
+        color: '#1e1e1e',
     },
     description: {
         //paddingVertical: 20,
@@ -2226,13 +2077,13 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flex: 1,
         alignItems: 'center',
-        justifyContent: 'space-between'
+        justifyContent: 'space-between',
     },
     spinner: {
         color: MAIN_COLOR,
         justifyContent: 'center',
         alignItems: 'center',
-        height: Dimensions.get('window').height / 2
+        height: Dimensions.get('window').height / 2,
     },
     blankSpace: {
         // position:'absolute',
@@ -2243,20 +2094,20 @@ const styles = StyleSheet.create({
         //backgroundColor: 'red',
         height: Dimensions.get('window').height / 2,
         justifyContent: 'center',
-        alignContent: 'center'
+        alignContent: 'center',
     },
     blank: {
         //paddingTop: Dimensions.get('window').height / 2 - HEADER_HEIGHT ,
         textAlign: 'center',
         color: '#a5a5a5',
-        fontSize: 16
+        fontSize: 16,
     },
     detailTitle: {
         //alignItems: 'center',
         paddingVertical: 5,
         paddingHorizontal: 0,
         borderBottomWidth: 3,
-        borderColor: MAIN_COLOR
+        borderColor: MAIN_COLOR,
         //flex:1
     },
     addDetail: {
@@ -2268,26 +2119,26 @@ const styles = StyleSheet.create({
         paddingVertical: 10,
         paddingHorizontal: 10,
         backgroundColor: '#f3f3f3',
-        flex: 1
+        flex: 1,
     },
     textDefault: {
-        color: '#a5a5a5'
+        color: '#a5a5a5',
     },
     textSuccess: {
-        color: MAIN_COLOR
+        color: MAIN_COLOR,
     },
     iconDefault: {
         color: '#a5a5a5',
-        fontSize: 24
+        fontSize: 24,
     },
     image: {
         //backgroundColor: 'red',
         //resizeMode: 'contain',
         flex: 1,
-        height: 200
+        height: 400,
         //position: 'absolute',
         //top:0
     },
     checkedList: {},
-    uncheckedList: {}
+    uncheckedList: {},
 });

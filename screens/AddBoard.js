@@ -15,13 +15,14 @@ import {
     Form,
     Textarea,
     Text,
-    Toast
+    Toast,
 } from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 
 import IconInput from '../components/IconInput';
 import ButtonInput from '../components/ButtonInput';
+import IconTextarea from '../components/IconTextarea';
 
 export default class AddBoard extends Component {
     _isMounted = false;
@@ -32,7 +33,7 @@ export default class AddBoard extends Component {
             desc_board: '',
             loading: false,
             isError: false,
-            editable: false
+            editable: false,
         };
         const { params } = this.props.navigation.state;
         this.board_id = params.board_id;
@@ -43,7 +44,7 @@ export default class AddBoard extends Component {
             text: message,
             duration: 2000,
             type: type,
-            buttonText: 'Close'
+            buttonText: 'Close',
         });
     };
 
@@ -60,17 +61,13 @@ export default class AddBoard extends Component {
         try {
             console.log(this.board_id);
             if (this.board_id) {
-                results = await DB.executeSql(
-                    'SELECT * FROM boards WHERE id=?',
-                    [this.board_id]
-                );
+                results = await DB.executeSql('SELECT * FROM boards WHERE id=?', [this.board_id]);
                 if (results.rows.length > 0) {
                     if (this._isMounted) {
                         this.setState({
                             name_board: results.rows.item(0).name,
-                            desc_board: results.rows.item(0)
-                                .description,
-                            editable: true
+                            desc_board: results.rows.item(0).description,
+                            editable: true,
                         });
                     }
                 }
@@ -90,16 +87,10 @@ export default class AddBoard extends Component {
                 );
                 console.log('Board added: ', results.rowsAffected);
                 if (results.rowsAffected > 0) {
-                    this.toastMessage(
-                        'New board was added!',
-                        'success'
-                    );
+                    this.toastMessage('New board was added!', 'success');
                     this.props.navigation.goBack();
                 } else {
-                    this.toastMessage(
-                        'Adding new board failed!',
-                        'danger'
-                    );
+                    this.toastMessage('Adding new board failed!', 'danger');
                     if (this._isMounted) {
                         this.setState({ loading: false });
                     }
@@ -111,11 +102,8 @@ export default class AddBoard extends Component {
                 );
                 console.log('Board updated: ', results.rowsAffected);
                 if (results.rowsAffected > 0) {
-                    this.toastMessage(
-                        'Board successfully updated!',
-                        'success'
-                    );
-                    this.props.navigation.goBack();
+                    this.toastMessage('Board successfully updated!', 'success');
+                    this.props.navigation.navigate('Home');
                 }
             } else {
                 if (this._isMounted) {
@@ -133,65 +121,51 @@ export default class AddBoard extends Component {
     };
 
     render() {
+        const { name_board, desc_board } = this.state;
         return (
             <Container style={styles.container}>
                 <View style={styles.head}>
-                    <Header
-                        androidStatusBarColor="#34a869"
-                        noShadow
-                        style={styles.header}
-                    >
+                    <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
                         <Left>
-                            <Button
-                                transparent
-                                onPress={this.handleToHome}
-                            >
-                                <Icon
-                                    name="md-arrow-back"
-                                    style={styles.icon}
-                                />
+                            <Button transparent onPress={this.handleToHome}>
+                                <Icon name="md-arrow-back" style={styles.icon} />
                             </Button>
                         </Left>
                         <Body />
                         <Right />
                     </Header>
                     <Text style={styles.title}>
-                        {this.state.editable
-                            ? 'Update Board'
-                            : 'Create Board'}
+                        {this.state.editable ? 'Update Board' : 'Create Board'}
                     </Text>
                 </View>
-                <ScrollView
-                    showsVerticalScrollIndicator={false}
-                    style={{ padding: 25 }}
-                >
+                <ScrollView showsVerticalScrollIndicator={false} style={{ padding: 25 }}>
                     <IconInput
                         placeholder="Title"
                         icon="md-clipboard"
-                        onChangeText={text =>
-                            this._isMounted &&
-                            this.setState({ name_board: text })
+                        onChangeText={(text) =>
+                            this._isMounted && this.setState({ name_board: text })
                         }
+                        value={name_board}
                     />
                     {this.state.isError && (
-                        <Text style={styles.textError}>
-                            Title field is required!
-                        </Text>
+                        <Text style={styles.textError}>Title field is required!</Text>
                     )}
-                    <IconInput
+                    <IconTextarea
                         placeholder="Description"
                         icon="md-list"
-                        onChangeText={text =>
-                            this._isMounted &&
-                            this.setState({ desc_board: text })
+                        onChangeText={(text) =>
+                            this._isMounted && this.setState({ desc_board: text })
                         }
+                        multiline={true}
+                        //numberOfLines={1}
+                        value={desc_board}
                     />
-                    <ButtonInput
-                        onPress={this.addBoard}
-                        text={
-                            this.state.editable ? 'UPDATE' : 'CREATE'
-                        }
-                    />
+                    <View style={{ marginTop: 10 }}>
+                        <ButtonInput
+                            onPress={this.addBoard}
+                            text={this.state.editable ? 'UPDATE' : 'CREATE'}
+                        />
+                    </View>
                 </ScrollView>
             </Container>
         );
@@ -201,7 +175,7 @@ export default class AddBoard extends Component {
 const styles = StyleSheet.create({
     container: {
         backgroundColor: 'white',
-        flex: 1
+        flex: 1,
     },
     head: {
         backgroundColor: '#39b772',
@@ -210,10 +184,10 @@ const styles = StyleSheet.create({
         // top:0,
         // left:0,
         // right:0,
-        height: 130
+        height: 130,
     },
     header: {
-        backgroundColor: 'transparent'
+        backgroundColor: 'transparent',
     },
     content: {
         //marginTop: 120,
@@ -224,36 +198,36 @@ const styles = StyleSheet.create({
         borderRadius: 10,
         shadowColor: '#fefefe',
         shadowOpacity: 0.1,
-        backgroundColor: 'white'
+        backgroundColor: 'white',
     },
     icon: {
         color: 'white',
-        fontSize: 27
+        fontSize: 27,
     },
     title: {
-        fontWeight: 'bold'
+        fontWeight: 'bold',
     },
     form: {
-        borderRadius: 5
+        borderRadius: 5,
     },
     button: {
         marginTop: 20,
         backgroundColor: '#39b772',
-        borderRadius: 10
+        borderRadius: 10,
     },
     textButton: {
-        fontWeight: 'bold'
+        fontWeight: 'bold',
     },
     textError: {
         color: 'red',
         fontSize: 12,
         padding: 0,
-        margin: 0
+        margin: 0,
     },
     title: {
         fontSize: 27,
         fontWeight: 'bold',
         color: 'white',
-        textAlign: 'center'
-    }
+        textAlign: 'center',
+    },
 });

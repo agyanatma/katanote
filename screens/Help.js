@@ -6,19 +6,9 @@ import {
     Image,
     ScrollView,
     Linking,
-    TouchableWithoutFeedback
+    TouchableWithoutFeedback,
 } from 'react-native';
-import {
-    Container,
-    Header,
-    Left,
-    Right,
-    Button,
-    Icon,
-    Body,
-    Content,
-    ListItem
-} from 'native-base';
+import { Container, Header, Left, Right, Button, Icon, Body, Content, ListItem } from 'native-base';
 
 const MAIN_COLOR = '#39b772';
 
@@ -26,10 +16,8 @@ export default class Help extends Component {
     openURL = (scheme, url) => {
         console.log('1');
         Linking.canOpenURL(scheme)
-            .then(supported =>
-                Linking.openURL(supported ? scheme : url)
-            )
-            .catch(err => console.error('An error occurred', err));
+            .then((supported) => Linking.openURL(supported ? scheme : url))
+            .catch((err) => console.error('An error occurred', err));
     };
 
     render() {
@@ -39,25 +27,15 @@ export default class Help extends Component {
                     androidStatusBarColor="#34a869"
                     noShadow
                     style={{
-                        backgroundColor: MAIN_COLOR
+                        backgroundColor: MAIN_COLOR,
                     }}
                 >
                     <Left>
-                        <Button
-                            transparent
-                            onPress={() =>
-                                this.props.navigation.toggleDrawer()
-                            }
-                        >
-                            <Icon
-                                name="md-menu"
-                                style={styles.icon}
-                            />
+                        <Button transparent onPress={() => this.props.navigation.toggleDrawer()}>
+                            <Icon name="md-menu" style={styles.icon} />
                         </Button>
                     </Left>
-                    <Body>
-                        {/* <Text style={styles.title}>Help</Text> */}
-                    </Body>
+                    <Body>{/* <Text style={styles.title}>Help</Text> */}</Body>
                     <Right />
                 </Header>
                 <ScrollView
@@ -70,7 +48,7 @@ export default class Help extends Component {
                         style={{
                             height: 200,
                             width: '100%',
-                            marginBottom: 10
+                            marginBottom: 10,
                         }}
                     />
                     <Text
@@ -78,7 +56,7 @@ export default class Help extends Component {
                             fontSize: 24,
                             fontWeight: 'bold',
                             color: '#1e1e1e',
-                            marginBottom: 15
+                            marginBottom: 15,
                         }}
                     >
                         Help & Support
@@ -87,23 +65,21 @@ export default class Help extends Component {
                         style={{
                             fontSize: 16,
                             color: '#1e1e1e',
-                            marginBottom: 5
+                            marginBottom: 5,
                         }}
                     >
-                        Kami menyediakan beberapa fitur-fitur untuk
-                        mengelola arsip Anda seperti date, text,
-                        pricing, checklist, image. Dan Anda dapat
-                        membagikan arsip ke berbagai media sosial.
+                        We provide several features for managing your archives such as date, text,
+                        pricing, checklist and image. You can also share archives on various social
+                        media.
                     </Text>
                     <Text
                         style={{
                             fontSize: 16,
                             color: '#1e1e1e',
-                            marginBottom: 5
+                            marginBottom: 5,
                         }}
                     >
-                        Hubungi kami untuk pengaduan sistem atau
-                        bertanya tentang aplikasi.
+                        Contact us for system complaints or question regarding our application.
                     </Text>
                     <Text
                         style={{
@@ -111,21 +87,19 @@ export default class Help extends Component {
                             color: '#1e1e1e',
                             marginBottom: 10,
                             marginTop: 15,
-                            fontWeight: 'bold'
+                            fontWeight: 'bold',
                         }}
                     >
                         Contact Us
                     </Text>
                     <TouchableWithoutFeedback
-                        onPress={() =>
-                            Linking.openURL('https://nore.web.id/')
-                        }
+                        onPress={() => Linking.openURL('https://nore.web.id/')}
                     >
                         <View
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
-                                marginBottom: 5
+                                marginBottom: 5,
                             }}
                         >
                             <Icon
@@ -133,12 +107,12 @@ export default class Help extends Component {
                                 style={{
                                     color: MAIN_COLOR,
                                     marginHorizontal: 10,
-                                    fontSize: 24
+                                    fontSize: 24,
                                 }}
                             />
                             <Text
                                 style={{
-                                    fontSize: 16
+                                    fontSize: 16,
                                 }}
                             >
                                 Nore Website
@@ -157,7 +131,7 @@ export default class Help extends Component {
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
-                                marginBottom: 5
+                                marginBottom: 5,
                             }}
                         >
                             <Icon
@@ -165,12 +139,12 @@ export default class Help extends Component {
                                 style={{
                                     color: '#4267b2',
                                     marginHorizontal: 10,
-                                    fontSize: 24
+                                    fontSize: 24,
                                 }}
                             />
                             <Text
                                 style={{
-                                    fontSize: 16
+                                    fontSize: 16,
                                 }}
                             >
                                 Nore
@@ -189,7 +163,7 @@ export default class Help extends Component {
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
-                                marginBottom: 5
+                                marginBottom: 5,
                             }}
                         >
                             <Icon
@@ -197,12 +171,12 @@ export default class Help extends Component {
                                 style={{
                                     color: '#dd336d',
                                     marginHorizontal: 10,
-                                    fontSize: 24
+                                    fontSize: 24,
                                 }}
                             />
                             <Text
                                 style={{
-                                    fontSize: 16
+                                    fontSize: 16,
                                 }}
                             >
                                 nore.web.id
@@ -221,7 +195,7 @@ export default class Help extends Component {
                             style={{
                                 flexDirection: 'row',
                                 alignItems: 'center',
-                                marginBottom: 5
+                                marginBottom: 5,
                             }}
                         >
                             <Icon
@@ -229,12 +203,12 @@ export default class Help extends Component {
                                 style={{
                                     color: '#0073b0',
                                     marginHorizontal: 10,
-                                    fontSize: 24
+                                    fontSize: 24,
                                 }}
                             />
                             <Text
                                 style={{
-                                    fontSize: 16
+                                    fontSize: 16,
                                 }}
                             >
                                 Nore
@@ -251,10 +225,10 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: 'white'
+        color: 'white',
     },
     icon: {
         color: 'white',
-        fontSize: 27
-    }
+        fontSize: 27,
+    },
 });

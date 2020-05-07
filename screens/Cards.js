@@ -1,6 +1,32 @@
 import React, { Component } from 'react';
-import { Text, StyleSheet, View, Dimensions, TextInput, FlatList, RefreshControl, TouchableNativeFeedback, Keyboard, Alert } from 'react-native';
-import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Item, Input, Form, Toast, Thumbnail, ActionSheet } from 'native-base';
+import {
+    Text,
+    StyleSheet,
+    View,
+    Dimensions,
+    TextInput,
+    FlatList,
+    RefreshControl,
+    TouchableNativeFeedback,
+    Keyboard,
+    Alert,
+} from 'react-native';
+import {
+    Container,
+    Header,
+    Icon,
+    Left,
+    Right,
+    Body,
+    Button,
+    Spinner,
+    Item,
+    Input,
+    Form,
+    Toast,
+    Thumbnail,
+    ActionSheet,
+} from 'native-base';
 import { StackActions, NavigationActions } from 'react-navigation';
 import DB from '../database';
 
@@ -22,7 +48,7 @@ export default class Items extends Component {
             isRefreshing: false,
             editable: false,
             name_board: '',
-            image: null
+            image: null,
         };
         const { params } = this.props.navigation.state;
         this.board_id = params.board_id;
@@ -34,7 +60,7 @@ export default class Items extends Component {
             text: message,
             duration: 1000,
             type: type,
-            buttonText: 'Close'
+            buttonText: 'Close',
         });
     };
 
@@ -56,7 +82,9 @@ export default class Items extends Component {
 
     fetchData = async () => {
         try {
-            results = await DB.executeSql('SELECT * FROM cards WHERE board_id = ? ORDER BY id DESC', [this.board_id]);
+            results = await DB.executeSql('SELECT * FROM cards WHERE board_id = ?', [
+                this.board_id,
+            ]);
             let len = results.rows.length;
             if (len >= 0) {
                 var data = results.rows.raw();
@@ -65,21 +93,29 @@ export default class Items extends Component {
                 }
             }
             if (this._isMounted) {
-                this.setState({ loading: false });
+                this.setState({ loading: false, isRefreshing: false });
             }
         } catch (error) {
             console.log(error);
             this.toastMessage('Something Wrong', 'danger');
             if (this._isMounted) {
-                this.setState({ loading: false });
+                this.setState({ loading: false, isRefreshing: false });
             }
         }
     };
 
+    onRefresh() {
+        this.setState({ isRefreshing: true, loading: true });
+        this.fetchData();
+    }
+
     handleAdd = async () => {
         const { name_card } = this.state;
         try {
-            results = await DB.executeSql('INSERT INTO cards (name, board_id) VALUES (?,?)', [name_card, this.board_id]);
+            results = await DB.executeSql('INSERT INTO cards (name, board_id) VALUES (?,?)', [
+                name_card,
+                this.board_id,
+            ]);
             console.log('New card added: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 if (this._isMounted) {
@@ -105,9 +141,9 @@ export default class Items extends Component {
         this.props.navigation.goBack();
     };
 
-    handleSearch = text => {
+    handleSearch = (text) => {
         const { searchHolder } = this.state;
-        const searchData = searchHolder.filter(item => {
+        const searchData = searchHolder.filter((item) => {
             const itemData = `${item.name.toLowerCase()}`;
             const textData = text.toLowerCase();
             return itemData.indexOf(textData) > -1;
@@ -121,7 +157,10 @@ export default class Items extends Component {
         const { name_board } = this.state;
         try {
             if (name_board) {
-                results = await DB.executeSql('UPDATE boards set name = ? where id = ?', [name_board, this.board_id]);
+                results = await DB.executeSql('UPDATE boards set name = ? where id = ?', [
+                    name_board,
+                    this.board_id,
+                ]);
                 console.log('New board updated: ', results.rowsAffected);
                 if (results.rowsAffected > 0) {
                     Keyboard.dismiss();
@@ -133,10 +172,14 @@ export default class Items extends Component {
         }
     };
 
+    handleCancel = () => {
+        this._isMounted && this.setState({ name_board: this.name_board, editable: false });
+    };
+
     handleDeleteBoard = async () => {
         try {
             results = await DB.executeSql('DELETE FROM boards WHERE id=?', [this.board_id]);
-            console.log('Deleted board: ', results.rowsAffected);
+            //console.log('Deleted board: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
                 this.toastMessage('Delete board success', 'success');
                 this.props.navigation.goBack();
@@ -152,13 +195,52 @@ export default class Items extends Component {
             {
                 text: 'CANCEL',
                 style: 'cancel',
-                onPress: () => console.log('Cancel delete board')
+                onPress: () => console.log('Cancel delete board'),
             },
             {
                 text: 'DELETE',
                 style: 'destructive',
-                onPress: () => this.handleDeleteBoard()
+                onPress: () => this.handleDeleteBoard(),
+            },
+        ]);
+    };
+
+    handleDeleteCard = async (id) => {
+        try {
+            results = await DB.executeSql('DELETE FROM cards WHERE id=?', [id]);
+            //console.log('Deleted board: ', results.rowsAffected);
+            if (results.rowsAffected > 0) {
+                this.toastMessage('Delete card success', 'success');
+                this._isMounted &&
+                    this.setState((prevState) => ({
+                        ...prevState,
+                        data: prevState.data.filter((data) => data.id !== id),
+                    }));
+                this._isMounted &&
+                    this.setState((prevState) => ({
+                        ...prevState,
+                        searchHolder: prevState.searchHolder.filter((data) => data.id !== id),
+                    }));
+                console.log(this.state.data);
             }
+        } catch (error) {
+            console.log(error);
+            this.toastMessage('Something Wrong', 'danger');
+        }
+    };
+
+    handleDeleteConfirmationCard = (id, name) => {
+        Alert.alert('Delete Card', `Are you sure want to delete ${name} ?`, [
+            {
+                text: 'CANCEL',
+                style: 'cancel',
+                onPress: () => console.log('Cancel delete card'),
+            },
+            {
+                text: 'DELETE',
+                style: 'destructive',
+                onPress: () => this.handleDeleteCard(id),
+            },
         ]);
     };
 
@@ -169,14 +251,14 @@ export default class Items extends Component {
             {
                 options: BUTTONS,
                 cancelButtonIndex: 2,
-                title: 'Select options'
+                title: 'Select options',
             },
-            buttonIndex => {
+            (buttonIndex) => {
                 switch (buttonIndex) {
                     case 0:
                         ActionSheet.hide();
                         this.props.navigation.navigate('AddBoard', {
-                            board_id: this.board_id
+                            board_id: this.board_id,
                         });
                         break;
                     case 1:
@@ -203,9 +285,10 @@ export default class Items extends Component {
                             card_id: item.id,
                             name_card: item.name,
                             board_id: this.board_id,
-                            name_board: this.name_board
+                            name_board: this.name_board,
                         })
                     }
+                    onLongPress={() => this.handleDeleteConfirmationCard(item.id, item.name)}
                 >
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name ? item.name : ''}</Text>
@@ -222,29 +305,50 @@ export default class Items extends Component {
                 <View style={styles.head}>
                     <Header androidStatusBarColor="#34a869" noShadow style={styles.header}>
                         <Left>
-                            <Button transparent onPress={this.handleBack}>
-                                <Icon name="md-arrow-back" style={styles.iconHeader} />
-                            </Button>
+                            {editable ? (
+                                <Button transparent onPress={this.handleCancel}>
+                                    <Icon name="md-close" style={styles.iconHeader} />
+                                </Button>
+                            ) : (
+                                <Button transparent onPress={this.handleBack}>
+                                    <Icon name="md-arrow-back" style={styles.iconHeader} />
+                                </Button>
+                            )}
                         </Left>
                         <Body />
                         <Right>
-                            <Button transparent onPress={this.handleOptions}>
-                                <Icon name="md-more" style={styles.iconHeader} />
-                            </Button>
+                            {editable ? (
+                                <Button transparent onPress={this.handleEdit}>
+                                    <Icon
+                                        type="Ionicons"
+                                        name="md-checkmark"
+                                        style={styles.iconHeader}
+                                    />
+                                </Button>
+                            ) : (
+                                <Button transparent onPress={this.handleOptions}>
+                                    <Icon name="md-more" style={styles.iconHeader} />
+                                </Button>
+                            )}
                         </Right>
                     </Header>
                     <View style={{ marginHorizontal: 40 }}>
                         {editable ? (
                             <TextInput
                                 style={styles.titleEdit}
-                                onChangeText={text => this.setState({ name_board: text })}
+                                onChangeText={(text) => this.setState({ name_board: text })}
                                 value={name_board}
                                 onBlur={() => this.setState({ editable: false })}
                                 onSubmitEditing={this.handleEdit}
                                 autoFocus
                             />
                         ) : (
-                            <Text style={styles.title} onPress={() => this.setState({ editable: true })}>
+                            <Text
+                                style={styles.title}
+                                onPress={() => this.setState({ editable: true })}
+                                numberOfLines={1}
+                                ellipsizeMode="tail"
+                            >
                                 {name_board}
                             </Text>
                         )}
@@ -254,7 +358,7 @@ export default class Items extends Component {
                     <Item style={styles.search}>
                         <Icon name="md-search" style={[styles.icon, styles.searchIcon]} />
                         <Input
-                            onChangeText={text => {
+                            onChangeText={(text) => {
                                 this.setState({ name_card: text }), this.handleSearch(text);
                             }}
                             value={this.state.name_card}
@@ -274,8 +378,12 @@ export default class Items extends Component {
                     <FlatList
                         data={this.state.data}
                         extraData={this.state}
-                        //refreshing={this.state.isRefreshing}
-                        //onRefresh={this.onRefresh}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={this.state.isRefreshing}
+                                onRefresh={this.onRefresh.bind(this)}
+                            />
+                        }
                         ListEmptyComponent={
                             <View style={styles.blankSpace}>
                                 <Text style={styles.blank}>Didn't find any data...</Text>
@@ -284,7 +392,7 @@ export default class Items extends Component {
                         }
                         contentContainerStyle={styles.list}
                         renderItem={this.renderItem}
-                        keyExtractor={item => item.id.toString()}
+                        keyExtractor={(item) => item.id.toString()}
                         showsVerticalScrollIndicator={false}
                     />
                 )}
@@ -296,10 +404,10 @@ export default class Items extends Component {
 const styles = StyleSheet.create({
     container: {
         backgroundColor: '#fafafa',
-        flex: 1
+        flex: 1,
     },
     header: {
-        backgroundColor: 'transparent'
+        backgroundColor: 'transparent',
     },
     head: {
         backgroundColor: MAIN_COLOR,
@@ -307,16 +415,16 @@ const styles = StyleSheet.create({
         // top:0,
         // left:0,
         // right:0,
-        height: HEADER_HEIGHT
+        height: HEADER_HEIGHT,
         //elevation: 1000,
-        //zIndex: 50,
+        zIndex: 50,
         //transform: [{ translateY: headerY }]
         //marginBottom: 20
     },
     list: {
         paddingTop: 40,
         padding: 15,
-        backgroundColor: 'transparent'
+        backgroundColor: 'transparent',
     },
     titlePage: {
         //paddingBottom: 20
@@ -325,7 +433,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 27,
         fontWeight: 'bold',
-        color: 'white'
+        color: 'white',
     },
     titleEdit: {
         fontSize: 27,
@@ -334,21 +442,21 @@ const styles = StyleSheet.create({
         margin: 0,
         padding: 0,
         borderBottomWidth: 2,
-        borderColor: '#34a869'
+        borderColor: '#34a869',
     },
     subtitle: {
         fontSize: 14,
         fontWeight: 'normal',
         textAlign: 'center',
-        color: 'white'
+        color: 'white',
     },
     iconHeader: {
         color: 'white',
-        fontSize: 27
+        fontSize: 27,
     },
     icon: {
         color: '#a6a6a6',
-        fontSize: 21
+        fontSize: 21,
     },
     item: {
         backgroundColor: 'white',
@@ -357,27 +465,27 @@ const styles = StyleSheet.create({
         //padding: 15,
         borderRadius: 5,
         flex: 1,
-        elevation: 3
+        elevation: 3,
         //height: Dimensions.get('window').width / numColumns
     },
     itemInvisible: {
         backgroundColor: 'transparent',
-        elevation: 0
+        elevation: 0,
     },
     itemContent: {
         //height: Dimensions.get('window').width / numColumns,
-        padding: 15
+        padding: 15,
     },
     board: {
         fontSize: 16,
         fontWeight: '700',
         marginBottom: 10,
-        color: '#1e1e1e'
+        color: '#1e1e1e',
     },
     description: {
         fontSize: 12,
         fontWeight: '300',
-        color: '#5e5e5e'
+        color: '#5e5e5e',
     },
     spinner: {
         color: MAIN_COLOR,
@@ -387,7 +495,7 @@ const styles = StyleSheet.create({
         top: Dimensions.get('window').height / 2,
         left: 0,
         right: 0,
-        zIndex: 50
+        zIndex: 50,
     },
     blankSpace: {
         // position:'absolute',
@@ -398,13 +506,13 @@ const styles = StyleSheet.create({
         //backgroundColor: 'red',
         height: Dimensions.get('window').height / 2,
         justifyContent: 'center',
-        alignContent: 'center'
+        alignContent: 'center',
     },
     blank: {
         //paddingTop: Dimensions.get('window').height / 2 - HEADER_HEIGHT ,
         textAlign: 'center',
         color: '#a5a5a5',
-        fontSize: 16
+        fontSize: 16,
     },
     searchBar: {
         //backgroundColor: 'red',
@@ -415,7 +523,7 @@ const styles = StyleSheet.create({
         top: HEADER_HEIGHT - 25,
         left: 40,
         right: 40,
-        zIndex: 99
+        zIndex: 99,
         //justifyContent: 'center',
         //paddingHorizontal: 10,
         //borderRadius: 10
@@ -423,9 +531,9 @@ const styles = StyleSheet.create({
     search: {
         backgroundColor: 'white',
         borderRadius: 10,
-        elevation: 10
+        elevation: 10,
     },
     searchIcon: {
-        paddingHorizontal: 10
-    }
+        paddingHorizontal: 10,
+    },
 });
