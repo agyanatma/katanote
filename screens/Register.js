@@ -51,42 +51,52 @@ export default class Login extends Component {
     handleRegister = () => {
         const { username, email, password } = this.state;
         this.setState({ loading: true });
-        axios
-            .post(URL + '/register', {
-                username: username,
-                email: email,
-                password: password,
-            })
-            .then(async (response) => {
-                response = response.data;
-                if (response.code > 200) {
-                    this.setState({
-                        isError: true,
-                        errorMessage: response.message,
-                    });
-                } else {
-                    let username = response.data.user.username;
-                    let email = response.data.user.email;
-                    let token = response.data.token;
-                    try {
-                        results = await DB.executeSql(
-                            'INSERT INTO user (username, email, token) VALUES (?,?,?)',
-                            [username, email, token]
-                        );
-                        if (results.rowsAffected > 0) {
-                            console.log('save success');
-                            this.toastMessage(response.message, 'success');
-                            this.props.navigation.navigate('LoadingScreen');
+        if (username != '' && email != '' && password != '') {
+            axios
+                .post(URL + '/register', {
+                    username: username,
+                    email: email,
+                    password: password,
+                })
+                .then(async (response) => {
+                    response = response.data;
+                    if (response.code > 200) {
+                        this.setState({
+                            isError: true,
+                            errorMessage: response.message,
+                        });
+                    } else {
+                        let username = response.data.user.username;
+                        let email = response.data.user.email;
+                        let token = response.data.token;
+                        try {
+                            results = await DB.executeSql(
+                                'INSERT INTO user (username, email, token) VALUES (?,?,?)',
+                                [username, email, token]
+                            );
+                            if (results.rowsAffected > 0) {
+                                console.log('save success');
+                                this.toastMessage(response.message, 'success');
+                                this.props.navigation.navigate('LoadingScreen');
+                            }
+                        } catch (error) {
+                            console.log(error);
+                            this.toastMessage('Something wrong!', 'danger');
                         }
-                    } catch (error) {
-                        console.log(error);
                     }
-                }
-                this.setState({ loading: false });
-            })
-            .catch((error) => {
-                console.log(error);
+                    this.setState({ loading: false });
+                })
+                .catch((error) => {
+                    console.log(error);
+                    this.setState({ loading: false });
+                });
+        } else {
+            this.setState({
+                isError: true,
+                errorMessage: 'The email, username, and password field is required!',
             });
+            this.setState({ loading: false });
+        }
     };
 
     handleChangeForm() {

@@ -43,10 +43,11 @@ import Share from 'react-native-share';
 import { MaskService } from 'react-native-masked-text';
 import RNFetchBlob from 'rn-fetch-blob';
 import { PERMISSIONS, RESULTS, check } from 'react-native-permissions';
+import PushNotification from 'react-native-push-notification';
+import axios from 'axios';
 
 import NumberDetails from '../components/NumberDetails';
 import TextDetails from '../components/TextDetails';
-import axios from 'axios';
 
 const MAIN_COLOR = '#39b772';
 const SECONDARY_COLOR = '#34a869';
@@ -87,6 +88,7 @@ export default class Detail extends Component {
             thumbnails: '',
             token: '',
             progress: 0,
+            exist: false,
         };
         const { params } = this.props.navigation.state;
         this.card_id = params.card_id;
@@ -212,7 +214,7 @@ export default class Detail extends Component {
     };
 
     handleOptions = () => {
-        const { name_card, description_card, image, details } = this.state;
+        const { name_card, description_card, image, details, thumbnails } = this.state;
         const BUTTONS = [
             {
                 text: 'Share on Whatsapp',
@@ -239,16 +241,16 @@ export default class Detail extends Component {
             switch (item.format) {
                 case 3:
                     var money = MaskService.toMask('money', item.value, {
-                        unit: '$',
-                        precision: 2,
+                        unit: 'Rp',
+                        precision: 0,
                         separator: '.',
-                        delimiter: ',',
+                        delimiter: ',00',
                     });
                     break;
                 case 4:
                     var money = MaskService.toMask('money', item.value, {
-                        unit: 'Rp',
-                        precision: 0,
+                        unit: '$',
+                        precision: 2,
                         separator: '.',
                         delimiter: ',',
                     });
@@ -268,12 +270,16 @@ export default class Detail extends Component {
             return `${item.name ? item.name : 'Item'}: ${item.format > 2 ? money : item.value}\n`;
         });
         //console.log(message);
+        let textMessage = `${name_card && name_card + ':\n'}${description_card &&
+            description_card + '\n'}${message && message.join('')}`;
+
         const shareOptions = {
-            message: `${name_card} :\n${description_card}\n${message.join('')}`,
-            url: image,
+            message: textMessage.replace(null, ''),
+            url: image && thumbnails ? `file://${image}` : '',
             whatsAppNumber: '', // country code + phone number
             //filename: image // only for base64 file in Android
         };
+        console.log(this.state.details);
 
         ActionSheet.show(
             {
@@ -611,7 +617,9 @@ export default class Detail extends Component {
                             valueInput={item.value}
                             deleteDetail={delete_detail}
                             onPressDelete={() => this.handleDeleteDetail(item)}
-                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+                            onSubmitRight={() =>
+                                this.handleEditDetailValue(item.value, item.id, item.format)
+                            }
                         />
                     </View>
                 );
@@ -628,14 +636,16 @@ export default class Detail extends Component {
                             typeMask={'money'}
                             precision={0}
                             separator={null}
-                            delimiter={','}
+                            delimiter={'.'}
                             unit={null}
                             placeholder={'0'}
                             onChangeInput={(rawText) => this.handleChangeInput(rawText, item.id)}
                             valueInput={item.value}
                             deleteDetail={delete_detail}
                             onPressDelete={() => this.handleDeleteDetail(item)}
-                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+                            onSubmitRight={() =>
+                                this.handleEditDetailValue(item.value, item.id, item.format)
+                            }
                         />
                     </View>
                 );
@@ -651,17 +661,19 @@ export default class Detail extends Component {
                             defaultField={item.name}
                             typeMask={'money'}
                             precision={0}
-                            separator={'.'}
-                            delimiter={','}
+                            separator={','}
+                            delimiter={'.'}
                             unit={'Rp'}
                             placeholder={'Rp0'}
                             onChangeInput={(maskedText, rawText) =>
                                 this.handleChangeInput(rawText, item.id)
                             }
-                            valueInput={item.value == 0 ? '' : item.value}
+                            valueInput={item.value ? item.value : ''}
                             deleteDetail={delete_detail}
                             onPressDelete={() => this.handleDeleteDetail(item)}
-                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+                            onSubmitRight={() =>
+                                this.handleEditDetailValue(item.value, item.id, item.format)
+                            }
                         />
                     </View>
                 );
@@ -684,10 +696,12 @@ export default class Detail extends Component {
                             onChangeInput={(maskedText, rawText) =>
                                 this.handleChangeInput(rawText, item.id)
                             }
-                            valueInput={item.value == 0 ? '' : item.value}
+                            valueInput={item.value ? item.value : ''}
                             deleteDetail={delete_detail}
                             onPressDelete={() => this.handleDeleteDetail(item)}
-                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+                            onSubmitRight={() =>
+                                this.handleEditDetailValue(item.value, item.id, item.format)
+                            }
                         />
                     </View>
                 );
@@ -710,10 +724,12 @@ export default class Detail extends Component {
                             onChangeInput={(maskedText, rawText) =>
                                 this.handleChangeInput(rawText, item.id)
                             }
-                            valueInput={item.value == 0 ? '' : item.value}
+                            valueInput={item.value ? item.value : ''}
                             deleteDetail={delete_detail}
                             onPressDelete={() => this.handleDeleteDetail(item)}
-                            onSubmitRight={() => this.handleEditDetailValue(item.value, item.id)}
+                            onSubmitRight={() =>
+                                this.handleEditDetailValue(item.value, item.id, item.format)
+                            }
                         />
                     </View>
                 );
@@ -827,18 +843,39 @@ export default class Detail extends Component {
         }
     };
 
-    handleEditDetailValue = async (text, index) => {
+    handleEditDetailValue = async (text, index, format) => {
         try {
-            results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [text, index]);
-            //console.log('Value updated: ', results.rowsAffected);
-            this._isMounted &&
-                this.setState((prevState) => ({
-                    ...prevState,
-                    details: prevState.details.map((detail) => ({
-                        ...detail,
-                        value: detail.id === index ? text : detail.value,
-                    })),
-                }));
+            console.log(text);
+            if (format == 4) {
+                let dollar = text ? text * 100 : null;
+                results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [
+                    dollar,
+                    index,
+                ]);
+                //console.log('Value updated: ', results.rowsAffected);
+                // this._isMounted &&
+                //     this.setState((prevState) => ({
+                //         ...prevState,
+                //         details: prevState.details.map((detail) => ({
+                //             ...detail,
+                //             value: detail.id === index ? dollar : detail.value,
+                //         })),
+                //     }));
+            } else {
+                results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [
+                    text,
+                    index,
+                ]);
+                //console.log('Value updated: ', results.rowsAffected);
+                // this._isMounted &&
+                //     this.setState((prevState) => ({
+                //         ...prevState,
+                //         details: prevState.details.map((detail) => ({
+                //             ...detail,
+                //             value: detail.id === index ? text : detail.value,
+                //         })),
+                //     }));
+            }
         } catch (error) {
             console.log(error);
         }
@@ -943,6 +980,7 @@ export default class Detail extends Component {
                                     image: response.path,
                                     filename: response.fileName,
                                     showAttachment: true,
+                                    exist: true,
                                 });
                             }
                         }
@@ -956,6 +994,7 @@ export default class Detail extends Component {
                                 this.setState({
                                     image: response.path,
                                     filename: response.fileName,
+                                    exist: true,
                                 });
                             }
                         }
@@ -1103,15 +1142,16 @@ export default class Detail extends Component {
 
     checkImage = async (filename) => {
         const { image } = this.state;
+        console.log(`gambar: ${image}`);
         const dirImage = `file://${image}`;
         await RNFetchBlob.fs
             .exists(dirImage)
             .then(async (exist) => {
                 if (exist) {
-                    console.log(this.state.downloadable);
-                    this._isMounted && this.setState({ downloadable: false });
+                    //console.log(this.state.downloadable);
+                    this._isMounted && this.setState({ downloadable: false, exist: true });
                 } else {
-                    this._isMounted && this.setState({ downloadable: true });
+                    this._isMounted && this.setState({ downloadable: true, exist: false });
                     await this.getThumbnail(filename);
                 }
             })
@@ -1139,6 +1179,10 @@ export default class Detail extends Component {
             })
             .catch((error) => {
                 console.log(error);
+                this.setState({
+                    downloadable: false,
+                    thumbnails: '',
+                });
             });
     };
 
@@ -1153,6 +1197,7 @@ export default class Detail extends Component {
                         image: results.rows.item(0).uri,
                         filename: results.rows.item(0).filename,
                         showAttachment: true,
+                        exist: true,
                     });
                 }
                 console.log(results.rows.item(0));
@@ -1165,8 +1210,9 @@ export default class Detail extends Component {
 
     handleAddDate = async (event, date) => {
         this.setState({ showDatePicker: false });
-        const { dateChanged } = this.state;
+        const { dateChanged, name_card } = this.state;
         let formatedDate = Date.parse(date);
+
         try {
             if (date === undefined) {
                 this.setState({ showDatePicker: false });
@@ -1179,10 +1225,14 @@ export default class Detail extends Component {
                             [formatedDate, this.card_id]
                         );
                         if (results.rowsAffected > 0) {
-                            // console.log(
-                            //     'Date added: ',
-                            //     results.rowsAffected
-                            // );
+                            PushNotification.localNotificationSchedule({
+                                largeIcon: 'icon',
+                                autoCancel: true,
+                                title: 'KataNote Schedule',
+                                message: `Tomorrow is due date for ${name_card} card!`, // (required)
+                                date: new Date(formatedDate - 86400 * 1000), // 86400 in 60 secs
+                            });
+                            console.log('cek');
                             await this.getDateCard();
                             if (this._isMounted) {
                                 this.setState({
@@ -1202,6 +1252,15 @@ export default class Detail extends Component {
                             //     'Date updated: ',
                             //     results.rowsAffected
                             // );
+                            PushNotification.cancelAllLocalNotifications();
+                            PushNotification.localNotificationSchedule({
+                                largeIcon: 'icon',
+                                autoCancel: true,
+                                title: 'KataNote Schedule',
+                                message: `Tomorrow is due date for ${name_card} card!`, // (required)
+                                date: new Date(formatedDate - 86400 * 1000), // in 60 secs
+                                //date: new Date(formatedDate + 5 * 1000), // in 60 secs
+                            });
                             await this.getDateCard();
                             if (this._isMounted) {
                                 this.setState({
@@ -1219,7 +1278,6 @@ export default class Detail extends Component {
     };
 
     handleDeleteDate = async () => {
-        const {} = this.state;
         try {
             results = await DB.executeSql('DELETE FROM date WHERE card_id=?', [this.card_id]);
             //console.log('Date deleted: ', results.rowsAffected);
@@ -1227,6 +1285,7 @@ export default class Detail extends Component {
                 if (this._isMounted) {
                     this.setState({ dateChanged: false });
                 }
+                PushNotification.cancelAllLocalNotifications();
             }
         } catch (error) {
             console.log(error);
@@ -1416,6 +1475,7 @@ export default class Detail extends Component {
             downloadable,
             thumbnails,
             progress,
+            exist,
         } = this.state;
         return (
             <Container style={styles.container}>
@@ -1956,10 +2016,9 @@ export default class Detail extends Component {
                                                             style={styles.image}
                                                             source={require('../assets/default.jpg')}
                                                             resizeMode={'contain'}
-                                                            blurRadius={5}
                                                         />
                                                     )
-                                                ) : (
+                                                ) : exist ? (
                                                     <Lightbox
                                                         style={{
                                                             flex: 1,
@@ -1974,6 +2033,12 @@ export default class Detail extends Component {
                                                             resizeMode={'contain'}
                                                         />
                                                     </Lightbox>
+                                                ) : (
+                                                    <Image
+                                                        style={styles.image}
+                                                        source={require('../assets/default.jpg')}
+                                                        resizeMode={'contain'}
+                                                    />
                                                 )}
                                             </ListItem>
                                             <Button

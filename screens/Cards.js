@@ -7,7 +7,7 @@ import {
     TextInput,
     FlatList,
     RefreshControl,
-    TouchableNativeFeedback,
+    TouchableOpacity,
     Keyboard,
     Alert,
 } from 'react-native';
@@ -279,7 +279,7 @@ export default class Items extends Component {
         }
         return (
             <View style={styles.item}>
-                <TouchableNativeFeedback
+                <TouchableOpacity
                     onPress={() =>
                         this.props.navigation.navigate('Detail', {
                             card_id: item.id,
@@ -293,7 +293,7 @@ export default class Items extends Component {
                     <View style={styles.itemContent}>
                         <Text style={styles.board}>{item.name ? item.name : ''}</Text>
                     </View>
-                </TouchableNativeFeedback>
+                </TouchableOpacity>
             </View>
         );
     };
@@ -386,7 +386,7 @@ export default class Items extends Component {
                         }
                         ListEmptyComponent={
                             <View style={styles.blankSpace}>
-                                <Text style={styles.blank}>Didn't find any data...</Text>
+                                <Text style={styles.blank}>Didn't find any card...</Text>
                                 <Text style={styles.blank}>Add something above!</Text>
                             </View>
                         }

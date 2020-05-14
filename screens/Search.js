@@ -148,21 +148,6 @@ export default class AddBoard extends Component {
                         <Icon name="arrow-forward" style={styles.icon} />
                     </View>
                 </TouchableWithoutFeedback>
-                {/* {item.card_name && (
-                    <TouchableWithoutFeedback onPress={this.handleToDetail.bind(this, item)}>
-                        <View style={styles.item}>
-                            <Left style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 20 }}>
-                                <Icon name="md-list" style={styles.icon} />
-                                <Text style={styles.board}>{item.card_name}</Text>
-                            </Left>
-                            <Right>
-                                <Button transparent>
-                                    <Icon name="arrow-forward" style={styles.icon} />
-                                </Button>
-                            </Right>
-                        </View>
-                    </TouchableWithoutFeedback>
-                )} */}
             </View>
         );
     };
@@ -214,7 +199,7 @@ const styles = StyleSheet.create({
     },
     list: {
         //padding: 5
-        flex: 1,
+        //flex: 1,
     },
     search: {
         borderRadius: 10,

@@ -5,9 +5,9 @@ import {
     View,
     Dimensions,
     FlatList,
-    TouchableNativeFeedback,
     Alert,
     RefreshControl,
+    TouchableOpacity,
 } from 'react-native';
 import { Container, Header, Icon, Left, Right, Body, Button, Spinner, Toast } from 'native-base';
 import Animated from 'react-native-reanimated';
@@ -72,7 +72,7 @@ export default class Home extends Component {
     };
 
     componentDidMount() {
-        this.updateTitle = this.props.navigation.addListener('willFocus', async () => {
+        this.updateTitle = this.props.navigation.addListener('willFocus', () => {
             this.getDataUser();
         });
         this.updateBoard = this.props.navigation.addListener('willFocus', async () => {
@@ -86,8 +86,8 @@ export default class Home extends Component {
 
     componentWillUnmount() {
         this._isMounted = false;
-        this.updateBoard.remove();
         this.updateTitle.remove();
+        this.updateBoard.remove();
     }
 
     handlePragma = () => {
@@ -192,7 +192,7 @@ export default class Home extends Component {
         }
         return (
             <View style={styles.item}>
-                <TouchableNativeFeedback
+                <TouchableOpacity
                     onPress={() =>
                         this.props.navigation.navigate('Cards', {
                             board_id: item.id,
@@ -207,7 +207,7 @@ export default class Home extends Component {
                             {item.description ? item.description : ''}
                         </Text>
                     </View>
-                </TouchableNativeFeedback>
+                </TouchableOpacity>
             </View>
         );
     };
@@ -233,11 +233,7 @@ export default class Home extends Component {
                         </Right>
                     </Header>
                     <Text style={styles.title}>KataNote</Text>
-                    <Text style={styles.subtitle}>
-                        {this.state.userName
-                            ? `Howdy, ${this.state.userName}`
-                            : 'your private catalogs and notes'}
-                    </Text>
+                    <Text style={styles.subtitle}>your private catalogs and notes</Text>
                 </Animated.View>
                 {this.state.loading ? (
                     <Spinner style={styles.spinner} />
@@ -256,7 +252,7 @@ export default class Home extends Component {
                         //extraData={this.state.refresh}
                         ListEmptyComponent={
                             <View style={styles.blankSpace}>
-                                <Text style={styles.blank}>Didn't find any data...</Text>
+                                <Text style={styles.blank}>Didn't find any board...</Text>
                                 <Text style={styles.blank}>Add something above!</Text>
                             </View>
                         }

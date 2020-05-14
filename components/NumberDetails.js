@@ -3,7 +3,7 @@ import { Text, TextInput } from 'react-native';
 import { Container, Header, Icon, Left, Right, Body, Button, ListItem } from 'native-base';
 import { TextInputMask } from 'react-native-masked-text';
 
-const NumberDetails = props => {
+const NumberDetails = (props) => {
     return (
         <ListItem icon>
             <Left>
@@ -25,7 +25,8 @@ const NumberDetails = props => {
                         precision: props.precision,
                         separator: props.separator,
                         delimiter: props.delimiter,
-                        unit: props.unit
+                        unit: props.unit,
+                        suffixUnit: props.suffix,
                     }}
                     placeholder={props.placeholder}
                     onChangeText={props.onChangeInput}
@@ -51,11 +52,19 @@ const NumberDetails = props => {
             <Right style={{ borderBottomWidth: 0 }}>
                 {props.deleteDetail ? (
                     <Button transparent onPress={props.onPressDelete}>
-                        <Icon name="trash" type="Ionicons" style={{ color: '#a5a5a5', fontSize: 18 }} />
+                        <Icon
+                            name="trash"
+                            type="Ionicons"
+                            style={{ color: '#a5a5a5', fontSize: 18 }}
+                        />
                     </Button>
                 ) : (
                     <Button transparent onPress={props.onPressRight}>
-                        <Icon name="md-arrow-dropdown" type="Ionicons" style={{ color: '#a5a5a5' }} />
+                        <Icon
+                            name="md-arrow-dropdown"
+                            type="Ionicons"
+                            style={{ color: '#a5a5a5' }}
+                        />
                     </Button>
                 )}
             </Right>

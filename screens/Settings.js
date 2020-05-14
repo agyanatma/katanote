@@ -37,7 +37,7 @@ export default class Settings extends Component {
     }
 
     componentDidMount() {
-        this.updateUser = this.props.navigation.addListener('willFocus', async () => {
+        this.updateUser = this.props.navigation.addListener('willFocus', () => {
             this.getDataUser();
             this.setState({ log: [] });
         });
@@ -67,7 +67,7 @@ export default class Settings extends Component {
                 onPress: () => console.log('Cancel delete board'),
             },
             {
-                text: 'DELETE',
+                text: 'IMPORT',
                 style: 'destructive',
                 onPress: () => this.handleImport(),
             },
@@ -102,7 +102,6 @@ export default class Settings extends Component {
                         email: '',
                         password: '',
                         token: '',
-                        logged: false,
                     });
                 console.log('delete success');
             }
@@ -119,19 +118,20 @@ export default class Settings extends Component {
         };
         await axios
             .get(URL + '/logout', config)
-            .then((response) => {
+            .then(async (response) => {
                 response = response.data;
                 if (response.code > 200) {
                     console.log(response.message);
                     this.toastMessage(response.message, 'danger');
                 } else {
-                    this.handleDeleteUser();
+                    await this.handleDeleteUser();
                     this.toastMessage(response.message, 'success');
                     this.props.navigation.navigate('Auth');
                 }
             })
             .catch((error) => {
                 console.log(error);
+                this.toastMessage('Something wrong!', 'danger');
             });
         this._isMounted && this.setState({ loading: false });
     };
@@ -293,6 +293,7 @@ export default class Settings extends Component {
                 })
                 .catch((error) => {
                     console.log(error);
+                    this.toastMessage('Something wrong!', 'danger');
                 });
         } else {
             this.toastMessage('Did not find any data', 'warning');
@@ -339,6 +340,7 @@ export default class Settings extends Component {
             })
             .catch((err) => {
                 console.log(err);
+                this.toastMessage('Something wrong!', 'danger');
             });
     };
 
@@ -405,6 +407,7 @@ export default class Settings extends Component {
             .catch((error) => {
                 console.log(error);
                 this._isMounted && this.setState({ loading: false });
+                this.toastMessage('Something wrong!', 'danger');
             });
     };
 
