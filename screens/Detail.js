@@ -214,7 +214,7 @@ export default class Detail extends Component {
     };
 
     handleOptions = () => {
-        const { name_card, description_card, image, details, thumbnails } = this.state;
+        const { name_card, description_card, image, details, exist } = this.state;
         const BUTTONS = [
             {
                 text: 'Share on Whatsapp',
@@ -267,7 +267,9 @@ export default class Detail extends Component {
                 default:
                     break;
             }
-            return `${item.name ? item.name : 'Item'}: ${item.format > 2 ? money : item.value}\n`;
+
+            if (item.name && item.value)
+                return `${item.name}: ${item.format > 2 ? money : item.value}\n`;
         });
         //console.log(message);
         let textMessage = `${name_card && name_card + ':\n'}${description_card &&
@@ -275,11 +277,11 @@ export default class Detail extends Component {
 
         const shareOptions = {
             message: textMessage.replace(null, ''),
-            url: image && thumbnails ? `file://${image}` : '',
+            url: image && exist ? `file://${image}` : '',
             whatsAppNumber: '', // country code + phone number
             //filename: image // only for base64 file in Android
         };
-        console.log(this.state.details);
+        //console.log(this.state.exist);
 
         ActionSheet.show(
             {
@@ -534,49 +536,115 @@ export default class Detail extends Component {
 
     renderChecklists = (item) => {
         const { editable_checkbox } = this.state;
-        if (editable_checkbox) {
-            return (
-                <View
+        return (
+            <ListItem
+                iconLeft
+                key={item.id}
+                style={{
+                    borderBottomWidth: 0,
+                    justifyContent: 'space-between',
+                    alignContent: 'flex-start',
+                    height: 50,
+                }}
+            >
+                <View style={{ flexDirection: 'row', alignItems: 'center', width: 200 }}>
+                    <CheckBox
+                        checked={item.done == 0 ? false : true}
+                        onPress={this.handleChecked.bind(this, item)}
+                    />
+                    <View style={{ marginLeft: 15 }}>
+                        {editable_checkbox ? (
+                            <TextInput
+                                onChangeText={(text) => this.handleOnChangeChecklist(text, item.id)}
+                                defaultValue={item.value}
+                                onBlur={() =>
+                                    this.setState({
+                                        editable_checkbox: false,
+                                    })
+                                }
+                                style={{
+                                    height: 50,
+                                }}
+                                //multiline={true}
+                                onSubmitEditing={() => this.handleEditChecklist(item)}
+                                onBlur={() => this.handleEditChecklist(item)}
+                            />
+                        ) : (
+                            <Text
+                                multiline={true}
+                                numberOfLines={5}
+                                ellipsizeMode={'tail'}
+                                style={{ marginLeft: 5 }}
+                            >
+                                {item.value}
+                            </Text>
+                        )}
+                    </View>
+                </View>
+                <View style={{ alignItems: 'center' }}>
+                    {editable_checkbox && (
+                        <Button transparent onPress={() => this.handleDeleteCheckbox(item)}>
+                            <Icon
+                                name="md-trash"
+                                style={(styles.textDefault, styles.iconDefault)}
+                            />
+                        </Button>
+                    )}
+                </View>
+                {/* <Left
                     style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
+                        margin: 0,
+                        padding: 0,
+                        justifyContent: 'flex-start',
+                        alignSelf: 'flex-start',
                     }}
                 >
-                    <TextInput
-                        key={item.id}
-                        style={{ marginLeft: 20 }}
-                        onChangeText={(text) => this.handleOnChangeChecklist(text, item.id)}
-                        defaultValue={item.value}
-                        onBlur={() =>
-                            this.setState({
-                                editable_checkbox: false,
-                            })
-                        }
-                        onSubmitEditing={() => this.handleEditChecklist(item)}
-                        //autoFocus
+                    <CheckBox
+                        checked={item.done == 0 ? false : true}
+                        onPress={this.handleChecked.bind(this, item)}
                     />
-                    <Button transparent onPress={() => this.handleDeleteCheckbox(item)}>
-                        <Icon name="md-trash" style={(styles.textDefault, styles.iconDefault)} />
-                    </Button>
-                </View>
-            );
-        } else {
-            return (
-                <Text
-                    style={
-                        item.done == 0
-                            ? { marginLeft: 20 }
-                            : {
-                                  marginLeft: 20,
-                                  textDecorationLine: 'line-through',
-                                  color: '#a5a5a5',
-                              }
-                    }
+                    {/* <Icon name="md-list" />
+                </Left>
+                <Body
+                    style={{
+                        borderBottomWidth: 0,
+                    }}
                 >
-                    {item.value}
-                </Text>
-            );
-        }
+                    {editable_checkbox ? (
+                        <TextInput
+                            onChangeText={(text) => this.handleOnChangeChecklist(text, item.id)}
+                            defaultValue={item.value}
+                            onBlur={() =>
+                                this.setState({
+                                    editable_checkbox: false,
+                                })
+                            }
+                            multiline={true}
+                            onSubmitEditing={() => this.handleEditChecklist(item)}
+                            //autoFocus
+                        />
+                    ) : (
+                        <Text multiline={true} numberOfLines={5} style={{ marginLeft: 5 }}>
+                            {item.value}
+                        </Text>
+                    )}
+                </Body>
+                <Right
+                    style={{
+                        borderBottomWidth: 0,
+                    }}
+                >
+                    {editable_checkbox && (
+                        <Button transparent onPress={() => this.handleDeleteCheckbox(item)}>
+                            <Icon
+                                name="md-trash"
+                                style={(styles.textDefault, styles.iconDefault)}
+                            />
+                        </Button>
+                    )}
+                </Right> */}
+            </ListItem>
+        );
     };
 
     handleChangeInput = (text, id) => {
@@ -1082,6 +1150,7 @@ export default class Detail extends Component {
                                 image: path,
                                 filename: filename,
                                 downloadable: false,
+                                exist: true,
                                 progress: 0,
                             });
                         }
@@ -1148,11 +1217,19 @@ export default class Detail extends Component {
             .exists(dirImage)
             .then(async (exist) => {
                 if (exist) {
+                    await PermissionsAndroid.request(
+                        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
+                    );
+                    await PermissionsAndroid.request(
+                        PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
+                    );
                     //console.log(this.state.downloadable);
-                    this._isMounted && this.setState({ downloadable: false, exist: true });
+                    this._isMounted &&
+                        this.setState({ downloadable: false, exist: true, thumbnails: '' });
                 } else {
-                    this._isMounted && this.setState({ downloadable: true, exist: false });
+                    this._isMounted && this.setState({ exist: false });
                     await this.getThumbnail(filename);
+                    console.log('thumb');
                 }
             })
             .catch((err) => {
@@ -1171,10 +1248,11 @@ export default class Detail extends Component {
         await axios
             .get(URL, config)
             .then((response) => {
-                //console.log(response);
+                //\\console.log(response);
                 this._isMounted &&
                     this.setState({
                         thumbnails: response.data.data,
+                        downloadable: true,
                     });
             })
             .catch((error) => {
@@ -1197,10 +1275,9 @@ export default class Detail extends Component {
                         image: results.rows.item(0).uri,
                         filename: results.rows.item(0).filename,
                         showAttachment: true,
-                        exist: true,
                     });
                 }
-                console.log(results.rows.item(0));
+                //console.log(results.rows.item(0));
                 await this.checkImage(results.rows.item(0).filename);
             }
         } catch (error) {
@@ -1827,26 +1904,7 @@ export default class Detail extends Component {
                                         <View style={styles.addDetail}>
                                             {checklist &&
                                                 checklist.map((item) => {
-                                                    return (
-                                                        <ListItem icon key={item.id}>
-                                                            <CheckBox
-                                                                checked={
-                                                                    item.done == 0 ? false : true
-                                                                }
-                                                                onPress={this.handleChecked.bind(
-                                                                    this,
-                                                                    item
-                                                                )}
-                                                            />
-                                                            <Body
-                                                                style={{
-                                                                    borderBottomWidth: 0,
-                                                                }}
-                                                            >
-                                                                {this.renderChecklists(item)}
-                                                            </Body>
-                                                        </ListItem>
-                                                    );
+                                                    return this.renderChecklists(item);
                                                 })}
                                             <ListItem icon>
                                                 {new_checklist.length > 0 ? (
@@ -2001,8 +2059,8 @@ export default class Detail extends Component {
                                                     borderBottomWidth: 0,
                                                 }}
                                             >
-                                                {downloadable ? (
-                                                    thumbnails ? (
+                                                {!exist ? (
+                                                    thumbnails || downloadable ? (
                                                         <Image
                                                             style={styles.image}
                                                             source={{
@@ -2018,7 +2076,7 @@ export default class Detail extends Component {
                                                             resizeMode={'contain'}
                                                         />
                                                     )
-                                                ) : exist ? (
+                                                ) : (
                                                     <Lightbox
                                                         style={{
                                                             flex: 1,
@@ -2033,12 +2091,6 @@ export default class Detail extends Component {
                                                             resizeMode={'contain'}
                                                         />
                                                     </Lightbox>
-                                                ) : (
-                                                    <Image
-                                                        style={styles.image}
-                                                        source={require('../assets/default.jpg')}
-                                                        resizeMode={'contain'}
-                                                    />
                                                 )}
                                             </ListItem>
                                             <Button

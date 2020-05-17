@@ -7,12 +7,14 @@ const IconInput = (props) => {
     return (
         <View style={styles.field}>
             <Icon name={props.icon} type={props.type} style={styles.icon} />
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
                 <TextInput style={{ fontSize: 16 }} {...props} />
             </View>
-            <TouchableWithoutFeedback {...props}>
-                <Icon name={props.iconRight} type={props.typeRight} style={styles.icon} />
-            </TouchableWithoutFeedback>
+            {props.iconRight && (
+                <TouchableWithoutFeedback {...props}>
+                    <Icon name={props.iconRight} type={props.typeRight} style={styles.icon} />
+                </TouchableWithoutFeedback>
+            )}
         </View>
     );
 };

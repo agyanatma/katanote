@@ -74,6 +74,21 @@ export default class Settings extends Component {
         ]);
     };
 
+    handleConfirmExport = () => {
+        Alert.alert('Are you sure?', 'Your backup will be overwritten', [
+            {
+                text: 'CANCEL',
+                style: 'cancel',
+                onPress: () => console.log('Cancel delete board'),
+            },
+            {
+                text: 'EXPORT',
+                style: 'destructive',
+                onPress: () => this.handleExport(),
+            },
+        ]);
+    };
+
     getDataUser = async () => {
         try {
             results = await DB.executeSql('SELECT * FROM user', []);
@@ -162,7 +177,7 @@ export default class Settings extends Component {
                             { message: `boards data ${i == 0 ? '' : i} exported . . . OK!` },
                         ],
                     }));
-                console.log(results.rows.item(i));
+                //console.log(results.rows.item(i));
             }
         }
 
@@ -179,7 +194,7 @@ export default class Settings extends Component {
                             { message: `cards data ${i == 0 ? '' : i} exported . . . OK!` },
                         ],
                     }));
-                console.log(results.rows.item(i));
+                //console.log(results.rows.item(i));
             }
         }
 
@@ -196,7 +211,7 @@ export default class Settings extends Component {
                             { message: `details data ${i == 0 ? '' : i} exported . . . OK!` },
                         ],
                     }));
-                console.log(results.rows.item(i));
+                //console.log(results.rows.item(i));
             }
         }
 
@@ -213,7 +228,7 @@ export default class Settings extends Component {
                             { message: `checkbox data ${i == 0 ? '' : i} exported . . . OK!` },
                         ],
                     }));
-                console.log(results.rows.item(i));
+                //console.log(results.rows.item(i));
             }
         }
 
@@ -230,7 +245,7 @@ export default class Settings extends Component {
                             { message: `date data ${i == 0 ? '' : i} exported . . . OK!` },
                         ],
                     }));
-                console.log(results.rows.item(i));
+                //console.log(results.rows.item(i));
             }
         }
 
@@ -249,7 +264,7 @@ export default class Settings extends Component {
                             { message: `images data ${i == 0 ? '' : i} exported . . . OK!` },
                         ],
                     }));
-                console.log(results.rows.item(i));
+                //console.log(results.rows.item(i));
 
                 //UPLOAD IMAGES RNFS FETCH BLOB
                 await this.uploadImage(i, filename, path);
@@ -340,7 +355,6 @@ export default class Settings extends Component {
             })
             .catch((err) => {
                 console.log(err);
-                this.toastMessage('Something wrong!', 'danger');
             });
     };
 
@@ -351,7 +365,7 @@ export default class Settings extends Component {
             //console.log(data);
             results = await DB.executeSql(`DELETE FROM ${data}`, []);
             if (results.rowsAffected > 0) {
-                console.log(`table ${data} deleted`);
+                //console.log(`table ${data} deleted`);
             }
         });
         //results = await DB.executeSql('DELETE FROM cards', []);
@@ -373,7 +387,7 @@ export default class Settings extends Component {
                 if (response.data.code > 200) {
                     console.log(response.message);
                 } else {
-                    console.log(JSON.parse(response.data.boards));
+                    //console.log(JSON.parse(response.data.boards));
 
                     let boards = JSON.parse(response.data.boards);
                     let cards = JSON.parse(response.data.cards);
@@ -556,7 +570,7 @@ export default class Settings extends Component {
                     </View>
                     <View style={{ flexDirection: 'row' }}>
                         <View style={{ flex: 1, marginRight: 5 }}>
-                            <ButtonInput text="EXPORT DATA" onPress={this.handleExport} />
+                            <ButtonInput text="EXPORT DATA" onPress={this.handleConfirmExport} />
                         </View>
                         <View style={{ flex: 1, marginLeft: 5 }}>
                             <ButtonInput text="IMPORT DATA" onPress={this.handleConfirmation} />
