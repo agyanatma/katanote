@@ -3,7 +3,7 @@ import { Text, StyleSheet, View, Keyboard, Dimensions, FlatList, Alert } from 'r
 import { Container, Header, Left, Right, Body, Button, Icon, Toast, Spinner } from 'native-base';
 import axios from 'axios';
 import DB from '../database';
-import { NavigationActions, StackActions } from 'react-navigation';
+import moment from 'moment';
 import RNFetchBlob from 'rn-fetch-blob';
 import PushNotification from 'react-native-push-notification';
 import ButtonInput from '../components/ButtonInput';
@@ -370,9 +370,17 @@ export default class Settings extends Component {
         PushNotification.cancelAllLocalNotifications();
     };
 
-    handleGetCardName = async (id) => {
+    handleGetCardName = async (id, formatedDate) => {
         results = await DB.executeSql('SELECT name FROM cards WHERE id=?', [id]);
-        this._isMounted && this.setState({ name_card: results.rows.item(0).name });
+        let card_date = results.rows.item(0).name;
+        //this._isMounted && this.setState({ name_card: results.rows.item(0).name });
+        await PushNotification.localNotificationSchedule({
+            largeIcon: 'icon',
+            autoCancel: true,
+            title: 'KataNote Schedule',
+            message: `Tomorrow is due date for ${card_date} card!`,
+            date: new Date(formatedDate - 86400 * 1000),
+        });
     };
 
     handleImport = async () => {
@@ -506,27 +514,22 @@ export default class Settings extends Component {
             ]);
             if (results.rowsAffected > 0) {
                 var formatedDate = date[i].value;
-                if (Date.now > formatedDate) {
-                    await this.handleGetCardName(date[i].id);
-                    PushNotification.localNotificationSchedule({
-                        largeIcon: 'icon',
-                        autoCancel: true,
-                        title: 'KataNote Schedule',
-                        message: `Tomorrow is due date for ${name_card} card!`,
-                        date: new Date(formatedDate - 86400 * 1000),
-                    });
+                if (Date.now() < formatedDate) {
+                    await this.handleGetCardName(date[i].card_id, formatedDate);
+                    this._isMounted &&
+                        this.setState((prevState) => ({
+                            log: [
+                                ...prevState.log,
+                                {
+                                    message: `date ${
+                                        i == 0 ? '' : i
+                                    } notifications installed on ${moment(
+                                        formatedDate - 86400 * 1000
+                                    ).format('dddd, MMMM Do YYYY')}`,
+                                },
+                            ],
+                        }));
                 }
-                this._isMounted &&
-                    this.setState((prevState) => ({
-                        log: [
-                            ...prevState.log,
-                            {
-                                message: `date ${
-                                    i == 0 ? '' : i
-                                } notifications installed . . . OK!`,
-                            },
-                        ],
-                    }));
             }
             this._isMounted &&
                 this.setState((prevState) => ({
