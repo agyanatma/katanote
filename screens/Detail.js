@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, useState } from 'react';
 import {
     Text,
     StyleSheet,
@@ -48,6 +48,7 @@ import axios from 'axios';
 
 import NumberDetails from '../components/NumberDetails';
 import TextDetails from '../components/TextDetails';
+import Checklist from '../components/Checklist';
 
 const MAIN_COLOR = '#39b772';
 const SECONDARY_COLOR = '#34a869';
@@ -428,19 +429,23 @@ export default class Detail extends Component {
     };
 
     handleEditChecklist = async (item) => {
-        try {
-            results = await DB.executeSql('UPDATE checkbox SET value=? WHERE id=?', [
-                item.value,
-                item.id,
-            ]);
-            //console.log('Checkbox updated: ', results.rowsAffected);
-            if (results.rowsAffected > 0) {
-                if (this._isMounted) {
-                    this.setState({ editable_checkbox: false });
+        if (item.value) {
+            try {
+                results = await DB.executeSql('UPDATE checkbox SET value=? WHERE id=?', [
+                    item.value,
+                    item.id,
+                ]);
+                //console.log('Checkbox updated: ', results.rowsAffected);
+                if (results.rowsAffected > 0) {
+                    if (this._isMounted) {
+                        this.setState({ editable_checkbox: false });
+                    }
                 }
+            } catch (error) {
+                console.log(error);
             }
-        } catch (error) {
-            console.log(error);
+        } else {
+            this.handleDeleteCheckbox(item);
         }
     };
 
@@ -547,40 +552,19 @@ export default class Detail extends Component {
                     height: 50,
                 }}
             >
-                <View style={{ flexDirection: 'row', alignItems: 'center', width: 200 }}>
-                    <CheckBox
-                        checked={item.done == 0 ? false : true}
-                        onPress={this.handleChecked.bind(this, item)}
-                    />
-                    <View style={{ marginLeft: 15 }}>
-                        {editable_checkbox ? (
-                            <TextInput
-                                onChangeText={(text) => this.handleOnChangeChecklist(text, item.id)}
-                                defaultValue={item.value}
-                                onBlur={() =>
-                                    this.setState({
-                                        editable_checkbox: false,
-                                    })
-                                }
-                                style={{
-                                    height: 50,
-                                }}
-                                //multiline={true}
-                                onSubmitEditing={() => this.handleEditChecklist(item)}
-                                onBlur={() => this.handleEditChecklist(item)}
-                            />
-                        ) : (
-                            <Text
-                                multiline={true}
-                                numberOfLines={5}
-                                ellipsizeMode={'tail'}
-                                style={{ marginLeft: 5 }}
-                            >
-                                {item.value}
-                            </Text>
-                        )}
-                    </View>
-                </View>
+                <Checklist
+                    checked={item.done == 0 ? false : true}
+                    onPress={this.handleChecked.bind(this, item)}
+                    Value={item.value}
+                    autoFocus={true}
+                    onSubmitEditing={() => this.handleEditChecklist(item)}
+                    onBlur={() => this.handleEditChecklist(item)}
+                    onChangeText={(text) => this.handleOnChangeChecklist(text, item.id)}
+                    defaultValue={item.value}
+                    Multiline={true}
+                    NumberOfLines={5}
+                    itemProps={item}
+                />
                 <View style={{ alignItems: 'center' }}>
                     {editable_checkbox && (
                         <Button transparent onPress={() => this.handleDeleteCheckbox(item)}>
@@ -591,58 +575,6 @@ export default class Detail extends Component {
                         </Button>
                     )}
                 </View>
-                {/* <Left
-                    style={{
-                        margin: 0,
-                        padding: 0,
-                        justifyContent: 'flex-start',
-                        alignSelf: 'flex-start',
-                    }}
-                >
-                    <CheckBox
-                        checked={item.done == 0 ? false : true}
-                        onPress={this.handleChecked.bind(this, item)}
-                    />
-                    {/* <Icon name="md-list" />
-                </Left>
-                <Body
-                    style={{
-                        borderBottomWidth: 0,
-                    }}
-                >
-                    {editable_checkbox ? (
-                        <TextInput
-                            onChangeText={(text) => this.handleOnChangeChecklist(text, item.id)}
-                            defaultValue={item.value}
-                            onBlur={() =>
-                                this.setState({
-                                    editable_checkbox: false,
-                                })
-                            }
-                            multiline={true}
-                            onSubmitEditing={() => this.handleEditChecklist(item)}
-                            //autoFocus
-                        />
-                    ) : (
-                        <Text multiline={true} numberOfLines={5} style={{ marginLeft: 5 }}>
-                            {item.value}
-                        </Text>
-                    )}
-                </Body>
-                <Right
-                    style={{
-                        borderBottomWidth: 0,
-                    }}
-                >
-                    {editable_checkbox && (
-                        <Button transparent onPress={() => this.handleDeleteCheckbox(item)}>
-                            <Icon
-                                name="md-trash"
-                                style={(styles.textDefault, styles.iconDefault)}
-                            />
-                        </Button>
-                    )}
-                </Right> */}
             </ListItem>
         );
     };
@@ -708,7 +640,7 @@ export default class Detail extends Component {
                             unit={null}
                             placeholder={'0'}
                             onChangeInput={(rawText) => this.handleChangeInput(rawText, item.id)}
-                            valueInput={item.value}
+                            valueInput={item.value ? item.value : ''}
                             deleteDetail={delete_detail}
                             onPressDelete={() => this.handleDeleteDetail(item)}
                             onSubmitRight={() =>
@@ -840,7 +772,11 @@ export default class Detail extends Component {
             results = await DB.executeSql('DELETE FROM details WHERE id=?', [item.id]);
             //console.log('Detail deleted: ', results.rowsAffected);
             if (results.rowsAffected > 0) {
-                this.getAllDetails();
+                this._isMounted &&
+                    this.setState((prevState) => ({
+                        ...prevState,
+                        details: prevState.details.filter((data) => data.id !== item.id),
+                    }));
                 details.length == 1 && (this._isMounted && this.setState({ showDetail: false }));
             }
         } catch (error) {
@@ -894,55 +830,25 @@ export default class Detail extends Component {
         }
     };
 
-    handleEditDetailField = async (text, index) => {
+    handleEditDetailField = async (text, id) => {
         try {
-            results = await DB.executeSql('UPDATE details SET name=? WHERE id=?', [text, index]);
-            //console.log('Field updated: ', results.rowsAffected);
-            this._isMounted &&
-                this.setState((prevState) => ({
-                    ...prevState,
-                    details: prevState.details.map((detail) => ({
-                        ...detail,
-                        name: detail.id === index ? text : detail.name,
-                    })),
-                }));
+            results = await DB.executeSql('UPDATE details SET name=? WHERE id=?', [text, id]);
         } catch (error) {
             console.log(error);
         }
     };
 
-    handleEditDetailValue = async (text, index, format) => {
+    handleEditDetailValue = async (text, id, format) => {
         try {
             console.log(text);
             if (format == 4) {
                 let dollar = text ? text * 100 : null;
                 results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [
                     dollar,
-                    index,
+                    id,
                 ]);
-                //console.log('Value updated: ', results.rowsAffected);
-                // this._isMounted &&
-                //     this.setState((prevState) => ({
-                //         ...prevState,
-                //         details: prevState.details.map((detail) => ({
-                //             ...detail,
-                //             value: detail.id === index ? dollar : detail.value,
-                //         })),
-                //     }));
             } else {
-                results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [
-                    text,
-                    index,
-                ]);
-                //console.log('Value updated: ', results.rowsAffected);
-                // this._isMounted &&
-                //     this.setState((prevState) => ({
-                //         ...prevState,
-                //         details: prevState.details.map((detail) => ({
-                //             ...detail,
-                //             value: detail.id === index ? text : detail.value,
-                //         })),
-                //     }));
+                results = await DB.executeSql('UPDATE details SET value=? WHERE id=?', [text, id]);
             }
         } catch (error) {
             console.log(error);

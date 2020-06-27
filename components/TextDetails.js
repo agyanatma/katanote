@@ -11,7 +11,7 @@ const TextDetails = (props) => {
                 <TouchableWithoutFeedback onPress={() => setEditname(!editName)}>
                     {editName ? (
                         <TextInput
-                            style={{ width: 100 }}
+                            style={{ width: 100, textDecorationLine: 'underline' }}
                             placeholder="Property"
                             onChangeText={props.onChangeField}
                             value={props.defaultField}
@@ -41,7 +41,11 @@ const TextDetails = (props) => {
                 <TouchableWithoutFeedback onPress={() => setEditvalue(!editValue)}>
                     {editValue ? (
                         <TextInput
-                            style={{ textAlignVertical: 'center', borderBottomWidth: 0 }}
+                            style={{
+                                textAlignVertical: 'center',
+                                borderBottomWidth: 0,
+                                textDecorationLine: 'underline',
+                            }}
                             placeholder="Empty"
                             onChangeText={props.onChangeInput}
                             value={props.valueInput}

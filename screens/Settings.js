@@ -5,6 +5,7 @@ import axios from 'axios';
 import DB from '../database';
 import { NavigationActions, StackActions } from 'react-navigation';
 import RNFetchBlob from 'rn-fetch-blob';
+import PushNotification from 'react-native-push-notification';
 import ButtonInput from '../components/ButtonInput';
 
 const MAIN_COLOR = '#39b772';
@@ -33,6 +34,7 @@ export default class Settings extends Component {
             isError: false,
             log: [],
             path: '',
+            name_card: '',
         };
     }
 
@@ -364,11 +366,13 @@ export default class Settings extends Component {
         tables.forEach(async (data) => {
             //console.log(data);
             results = await DB.executeSql(`DELETE FROM ${data}`, []);
-            if (results.rowsAffected > 0) {
-                //console.log(`table ${data} deleted`);
-            }
         });
-        //results = await DB.executeSql('DELETE FROM cards', []);
+        PushNotification.cancelAllLocalNotifications();
+    };
+
+    handleGetCardName = async (id) => {
+        results = await DB.executeSql('SELECT name FROM cards WHERE id=?', [id]);
+        this._isMounted && this.setState({ name_card: results.rows.item(0).name });
     };
 
     handleImport = async () => {
@@ -426,7 +430,7 @@ export default class Settings extends Component {
     };
 
     handleAddDatabase = async () => {
-        const { boards, cards, details, checkbox, date, images, token } = this.state;
+        const { boards, cards, details, checkbox, date, images, name_card } = this.state;
         //console.log(boards, cards, details, checkbox, date, images);
         for (var i = 0; i < boards.length; i++) {
             results = await DB.executeSql(
@@ -500,6 +504,30 @@ export default class Settings extends Component {
                 date[i].value,
                 date[i].card_id,
             ]);
+            if (results.rowsAffected > 0) {
+                var formatedDate = date[i].value;
+                if (Date.now > formatedDate) {
+                    await this.handleGetCardName(date[i].id);
+                    PushNotification.localNotificationSchedule({
+                        largeIcon: 'icon',
+                        autoCancel: true,
+                        title: 'KataNote Schedule',
+                        message: `Tomorrow is due date for ${name_card} card!`,
+                        date: new Date(formatedDate - 86400 * 1000),
+                    });
+                }
+                this._isMounted &&
+                    this.setState((prevState) => ({
+                        log: [
+                            ...prevState.log,
+                            {
+                                message: `date ${
+                                    i == 0 ? '' : i
+                                } notifications installed . . . OK!`,
+                            },
+                        ],
+                    }));
+            }
             this._isMounted &&
                 this.setState((prevState) => ({
                     log: [

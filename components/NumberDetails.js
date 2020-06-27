@@ -1,23 +1,32 @@
 import React, { Component, useState } from 'react';
-import { Text, TextInput } from 'react-native';
+import { Text, TextInput, TouchableWithoutFeedback } from 'react-native';
 import { Container, Header, Icon, Left, Right, Body, Button, ListItem } from 'native-base';
-import { TextInputMask } from 'react-native-masked-text';
+import { TextInputMask, MaskService } from 'react-native-masked-text';
 
 const NumberDetails = (props) => {
     const [editName, setEditname] = useState(false);
     const [editValue, setEditvalue] = useState(false);
+    const maskedText =
+        props.valueInput &&
+        MaskService.toMask('money', props.valueInput, {
+            unit: props.unit,
+            precision: props.precision,
+            separator: props.separator,
+            delimiter: props.delimiter,
+        });
     return (
         <ListItem icon>
             <Left>
                 <TouchableWithoutFeedback onPress={() => setEditname(!editName)}>
                     {editName ? (
                         <TextInput
-                            style={{ width: 100 }}
+                            style={{ width: 100, textDecorationLine: 'underline' }}
                             placeholder="Property"
                             onChangeText={props.onChangeField}
                             onSubmitEditing={props.onSubmitLeft}
                             value={props.defaultField}
                             ellipsizeMode="tail"
+                            autoFocus={true}
                             onBlur={(props.onSubmitLeft, () => setEditname(false))}
                         />
                     ) : (
@@ -41,6 +50,7 @@ const NumberDetails = (props) => {
                 <TouchableWithoutFeedback onPress={() => setEditvalue(!editValue)}>
                     {editValue ? (
                         <TextInputMask
+                            style={{ textDecorationLine: 'underline' }}
                             type={props.typeMask}
                             options={{
                                 precision: props.precision,
@@ -54,7 +64,7 @@ const NumberDetails = (props) => {
                             value={props.valueInput}
                             ellipsizeMode="tail"
                             numberOfLines={1}
-                            autoFocus={props.autoFocus}
+                            autoFocus={true}
                             includeRawValueInChangeText={true}
                             onSubmitEditing={props.onSubmitRight}
                             onBlur={(props.onSubmitRight, () => setEditvalue(false))}
@@ -66,7 +76,7 @@ const NumberDetails = (props) => {
                                 color: props.valueInput ? 'black' : '#a5a5a5',
                             }}
                         >
-                            {props.valueInput ? props.valueInput : 'Empty'}
+                            {props.valueInput ? maskedText : props.placeholder}
                         </Text>
                     )}
                 </TouchableWithoutFeedback>
