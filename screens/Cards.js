@@ -82,9 +82,10 @@ export default class Items extends Component {
 
     fetchData = async () => {
         try {
-            results = await DB.executeSql('SELECT * FROM cards WHERE board_id = ?', [
-                this.board_id,
-            ]);
+            results = await DB.executeSql(
+                'SELECT * FROM cards WHERE board_id = ? ORDER BY id DESC',
+                [this.board_id]
+            );
             let len = results.rows.length;
             if (len >= 0) {
                 var data = results.rows.raw();

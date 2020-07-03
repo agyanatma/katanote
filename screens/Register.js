@@ -193,14 +193,21 @@ export default class Login extends Component {
                     />
                     <View>
                         {isError && <Text style={{ color: 'red' }}>{`*${errorMessage}`}</Text>}
-                        <TouchableWithoutFeedback
-                            style={{ paddingVertical: 10 }}
-                            onPress={this.handleChangeForm.bind(this)}
+                        <View
+                            style={{
+                                paddingVertical: 10,
+                                flexDirection: 'row',
+                            }}
                         >
-                            <Text style={{ color: '#1e1e1e' }}>
-                                Already have account? Login here!
-                            </Text>
-                        </TouchableWithoutFeedback>
+                            <Text style={{ color: '#1e1e1e' }}>Don't have account?</Text>
+                            <TouchableWithoutFeedback onPress={this.handleChangeForm.bind(this)}>
+                                <Text
+                                    style={{ marginLeft: 5, color: MAIN_COLOR, fontWeight: 'bold' }}
+                                >
+                                    Login here!
+                                </Text>
+                            </TouchableWithoutFeedback>
+                        </View>
                         <View style={{ width: '50%' }}>
                             <ButtonInput onPress={this.handleRegister} text="SIGN UP" />
                         </View>

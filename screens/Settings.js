@@ -643,6 +643,8 @@ export default class Settings extends Component {
                                 data={log}
                                 keyExtractor={(item, index) => index.toString()}
                                 contentContainerStyle={{ paddingVertical: 10 }}
+                                ref="flatList"
+                                onContentSizeChange={() => this.refs.flatList.scrollToEnd()}
                             />
                         )}
                     </View>
