@@ -105,19 +105,19 @@ export default class AddBoard extends Component {
         this.setState({ data: searchData, cancel: true });
     };
 
-    handleToCard = (item) => {
+    handleToCard = ({ id, name }) => {
         this.props.navigation.navigate('Cards', {
-            board_id: item.id,
-            name_board: item.name,
+            board_id: id,
+            name_board: name,
         });
     };
 
-    handleToDetail = (item) => {
+    handleToDetail = ({ id_card, id_board, name, name_board }) => {
         this.props.navigation.navigate('Detail', {
-            card_id: item.id,
-            board_id: item.id_board,
-            name_card: item.name,
-            name_board: item.name_board,
+            card_id: id_card,
+            board_id: id_board,
+            name_card: name,
+            name_board: name_board,
         });
     };
 
@@ -131,8 +131,8 @@ export default class AddBoard extends Component {
                 <TouchableWithoutFeedback
                     onPress={
                         item.id_board
-                            ? this.handleToDetail.bind(this, item)
-                            : this.handleToCard.bind(this, item)
+                            ? () => this.handleToDetail(item)
+                            : () => this.handleToCard(item)
                     }
                 >
                     <View style={styles.item}>

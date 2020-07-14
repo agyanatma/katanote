@@ -39,11 +39,11 @@ export default class Settings extends Component {
     }
 
     componentDidMount() {
+        this.getDataUser();
         this.updateUser = this.props.navigation.addListener('willFocus', () => {
             this.getDataUser();
             this.setState({ log: [] });
         });
-        this.getDataUser();
         this._isMounted = true;
     }
 
@@ -94,7 +94,7 @@ export default class Settings extends Component {
     getDataUser = async () => {
         try {
             results = await DB.executeSql('SELECT * FROM user', []);
-            //console.log(results.rows.raw())
+            console.log(results.rows.raw());
             if (results.rows.length > 0) {
                 this._isMounted &&
                     this.setState({
@@ -395,39 +395,47 @@ export default class Settings extends Component {
         await axios
             .get(URL + '/import', config)
             .then(async (response) => {
-                response = response.data;
-                if (response.data.code > 200) {
-                    console.log(response.message);
-                } else {
-                    //console.log(JSON.parse(response.data.boards));
-
-                    let boards = JSON.parse(response.data.boards);
-                    let cards = JSON.parse(response.data.cards);
-                    let details = JSON.parse(response.data.details);
-                    let checkbox = JSON.parse(response.data.checkbox);
-                    let date = JSON.parse(response.data.date);
-                    let images = JSON.parse(response.data.images);
-
-                    this._isMounted &&
-                        this.setState({
-                            boards,
-                            cards,
-                            details,
-                            checkbox,
-                            date,
-                            images,
-                        });
-                    //console.log(response);
-
-                    await this.deleteAllRows();
-                    await this.handleAddDatabase();
-
-                    this._isMounted &&
-                        this.setState((prevState) => ({
-                            log: [...prevState.log, { message: 'All data imported successfully!' }],
-                        }));
-                    this.toastMessage('All data imported successfully!', 'success');
+                let responseData = response.data;
+                if (responseData.data == null) {
+                    this.toastMessage('You did not have any backup data', 'danger');
                     this._isMounted && this.setState({ loading: false });
+                } else {
+                    if (responseData.code > 200) {
+                        console.log(responseData.message);
+                        this.toastMessage('Import failed', 'danger');
+                        this._isMounted && this.setState({ loading: false });
+                    } else {
+                        let boards = JSON.parse(responseData.data.boards);
+                        let cards = JSON.parse(responseData.data.cards);
+                        let details = JSON.parse(responseData.data.details);
+                        let checkbox = JSON.parse(responseData.data.checkbox);
+                        let date = JSON.parse(responseData.data.date);
+                        let images = JSON.parse(responseData.data.images);
+
+                        this._isMounted &&
+                            this.setState({
+                                boards,
+                                cards,
+                                details,
+                                checkbox,
+                                date,
+                                images,
+                            });
+                        //console.log(response);
+
+                        await this.deleteAllRows();
+                        await this.handleAddDatabase();
+
+                        this._isMounted &&
+                            this.setState((prevState) => ({
+                                log: [
+                                    ...prevState.log,
+                                    { message: 'All data imported successfully!' },
+                                ],
+                            }));
+                        this.toastMessage('All data imported successfully!', 'success');
+                        this._isMounted && this.setState({ loading: false });
+                    }
                 }
             })
             .catch((error) => {

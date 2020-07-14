@@ -105,6 +105,8 @@ export default class Detail extends Component {
         if (this._isMounted) {
             this.setState({ name_card: this.name_card });
         }
+
+        console.log(this.card_id);
     }
 
     componentWillUnmount() {

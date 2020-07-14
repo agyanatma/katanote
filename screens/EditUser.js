@@ -88,7 +88,7 @@ export default class Login extends Component {
                     this.setState({ loading: false });
                 } else {
                     let email = response.data.email;
-                    let username = response.data.username;
+                    console.log(email, username);
                     try {
                         results = await DB.executeSql('UPDATE user SET username=? WHERE email=?', [
                             username,
@@ -190,7 +190,7 @@ export default class Login extends Component {
                     </View>
                     <IconInput
                         icon="md-key"
-                        placeholder="Confirm Your Password"
+                        placeholder="Password Verification"
                         onChangeText={(text) =>
                             this._isMounted &&
                             this.setState({
